@@ -21,18 +21,8 @@
   --f-ui:"Geist","Segoe UI",system-ui,-apple-system,sans-serif;
   --f-mono:"Geist Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#09090B; --surface:#141417; --surface-2:#1C1C20; --fg:#FAFAFA; --muted:#A1A1AA; --faint:#71717A;
-  --accent:#60A5FA; --accent-bg:#FAFAFA; --on-accent:#18181B; --accent-soft:#172036; --line:#27272A; --line-2:#1F1F23;
-  --ok:#4ADE80; --ok-soft:#10261A; --warn:#FBBF24; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2D1515;
-  --info:#93C5FD; --info-soft:#172036; --mute-soft:#1F1F23; --thumb-l1:30%; --thumb-l2:20%;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.5); color-scheme:dark }}
-:root[data-theme="dark"]{
-  --bg:#09090B; --surface:#141417; --surface-2:#1C1C20; --fg:#FAFAFA; --muted:#A1A1AA; --faint:#71717A;
-  --accent:#60A5FA; --accent-bg:#FAFAFA; --on-accent:#18181B; --accent-soft:#172036; --line:#27272A; --line-2:#1F1F23;
-  --ok:#4ADE80; --ok-soft:#10261A; --warn:#FBBF24; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2D1515;
-  --info:#93C5FD; --info-soft:#172036; --mute-soft:#1F1F23; --thumb-l1:30%; --thumb-l2:20%;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.5); color-scheme:dark }
+/* deliberately light-only: the product look is a neutral light UI regardless of OS theme */
+:root{color-scheme:light}
 
 *{box-sizing:border-box}
 html,body{height:100%}
