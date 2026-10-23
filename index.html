@@ -41,7 +41,7 @@ svg.lucide{width:16px;height:16px;stroke-width:1.8;flex:none}
 .sb{position:fixed;top:0;bottom:0;left:0;width:248px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:6px;
   padding:calc(18px + env(safe-area-inset-top,0px)) 12px calc(14px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));z-index:50;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:0 8px 14px}
-.brand-mark{width:32px;height:32px;border-radius:8px;background:var(--accent-bg);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.04em}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:var(--accent-bg);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:10.5px;letter-spacing:.02em;flex:none}
 .brand b{display:block;font-size:15px;letter-spacing:.02em}
 .brand span{display:block;font-size:11.5px;color:var(--muted);line-height:1.2}
 .nav-g{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);padding:12px 10px 4px;font-weight:600}
@@ -312,7 +312,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 </style>
 </head>
 <body>
-<aside class="sb" id="sb">
+<aside class="sb" id="sb" lang="az">
   <div class="brand"><div class="brand-mark">MEV</div><div><b>MEV</b><span>Real Əmlak · daxili platforma</span></div></div>
   <nav class="nav" id="nav"></nav>
   <div class="sb-foot">
@@ -321,7 +321,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
   </div>
 </aside>
 <div class="scrim" id="scrim"></div>
-<div class="main">
+<div class="main" lang="az">
   <div class="demo-bar"><b>DEMO</b><span>Bütün məlumatlar nümunədir. Baxış və filtrlər işləyir, yazma əməliyyatları kilidlidir.</span></div>
   <header class="top">
     <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menyu"><i data-lucide="menu"></i></button>
@@ -350,6 +350,8 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script>
+/* Azerbaijani casing: text-transform needs lang="az" so i → İ, not I */
+document.documentElement.lang='az';
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -845,7 +847,10 @@ V.tikililer=()=>{const pr=PROJECTS.find(p=>p.id===S.proj),dev=DEVS.find(d=>d.id=
   </section>`};
 
 /* matching */
-V.uygunlasdirma=()=>{const reqs=REQS.filter(r=>r.active);if(!S.mreq)S.mreq=reqs[0].id;if(!S.mprop)S.mprop=ACTIVEP()[0].id;
+V.uygunlasdirma=()=>{const reqs=REQS.filter(r=>r.active);
+  /* open on the richest example so the first view shows what matching does */
+  if(!S.mreq)S.mreq=reqs.map(r=>[r.id,matchesForReq(r).filter(m=>!m.bad).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  if(!S.mprop)S.mprop=ACTIVEP().map(p=>[p.id,matchesForProp(p).filter(m=>!m.bad).length]).sort((a,b)=>b[1]-a[1])[0][0];
   const wsum=Object.values(S.w).reduce((a,b)=>a+b,0)||1;
   const W=[['budget','Büdcə'],['loc','Ərazi'],['rooms','Otaq sayı'],['area','Sahə'],['other','Digər']];
   const counts=OSTAT.map(s=>[s,OFFERS.filter(o=>o.status===s).length]);
