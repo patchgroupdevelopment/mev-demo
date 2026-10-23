@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>MEV Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed left nav + sticky top bar + dense work surface; cool zinc neutrals, near-black primary, one blue accent */
+:root{
+  --bg:#FAFAFA; --surface:#FFFFFF; --surface-2:#F4F4F5; --fg:#18181B; --muted:#52525B; --faint:#A1A1AA;
+  --accent:#2563EB; --accent-bg:#18181B; --on-accent:#FFFFFF; --accent-soft:#EFF6FF; --line:#E4E4E7; --line-2:#F0F0F2;
+  --ok:#15803D; --ok-soft:#F0FDF4; --warn:#B45309; --warn-soft:#FFFBEB; --bad:#B91C1C; --bad-soft:#FEF2F2;
+  --info:#1D4ED8; --info-soft:#EFF6FF; --mute-soft:#F4F4F5;
+  --thumb-l1:86%; --thumb-l2:72%;
+  --shadow:0 1px 2px rgba(24,24,27,.04),0 8px 24px rgba(24,24,27,.08);
+  --f-ui:"Geist","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Geist Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#09090B; --surface:#141417; --surface-2:#1C1C20; --fg:#FAFAFA; --muted:#A1A1AA; --faint:#71717A;
+  --accent:#60A5FA; --accent-bg:#FAFAFA; --on-accent:#18181B; --accent-soft:#172036; --line:#27272A; --line-2:#1F1F23;
+  --ok:#4ADE80; --ok-soft:#10261A; --warn:#FBBF24; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2D1515;
+  --info:#93C5FD; --info-soft:#172036; --mute-soft:#1F1F23; --thumb-l1:30%; --thumb-l2:20%;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.5); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#09090B; --surface:#141417; --surface-2:#1C1C20; --fg:#FAFAFA; --muted:#A1A1AA; --faint:#71717A;
+  --accent:#60A5FA; --accent-bg:#FAFAFA; --on-accent:#18181B; --accent-soft:#172036; --line:#27272A; --line-2:#1F1F23;
+  --ok:#4ADE80; --ok-soft:#10261A; --warn:#FBBF24; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2D1515;
+  --info:#93C5FD; --info-soft:#172036; --mute-soft:#1F1F23; --thumb-l1:30%; --thumb-l2:20%;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.5); color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-ui);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.mono{font-family:var(--f-mono);font-size:12.5px;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.faint{color:var(--faint)}
+svg.lucide{width:16px;height:16px;stroke-width:1.8;flex:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* shell */
+.sb{position:fixed;top:0;bottom:0;left:0;width:248px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:6px;
+  padding:calc(18px + env(safe-area-inset-top,0px)) 12px calc(14px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));z-index:50;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 14px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:var(--accent-bg);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.04em}
+.brand b{display:block;font-size:15px;letter-spacing:.02em}
+.brand span{display:block;font-size:11.5px;color:var(--muted);line-height:1.2}
+.nav-g{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);padding:12px 10px 4px;font-weight:600}
+.nav a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;color:var(--fg);text-decoration:none;font-size:13.5px;cursor:pointer}
+.nav a:hover{background:var(--surface-2)}
+.nav a.on{background:var(--surface-2);color:var(--fg);font-weight:600}
+.nav a.on svg{color:var(--accent)}
+.nav a svg{color:var(--muted)}
+.nav a .cnt{margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;background:var(--bad-soft);color:var(--bad);padding:0 6px;border-radius:9px;font-weight:600}
+.sb-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--muted)}
+.sb-foot a{display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;color:var(--muted)}
+.sb-foot a:hover{color:var(--fg)}
+.main{margin-left:248px;min-width:0;display:flex;flex-direction:column;min-height:100%}
+.demo-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--accent-soft);color:var(--fg);border-bottom:1px solid var(--line);font-size:12.5px;
+  padding:7px max(24px,env(safe-area-inset-right,0px)) 7px max(24px,env(safe-area-inset-left,0px))}
+.demo-bar b{letter-spacing:.06em;font-size:11px;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 6px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;
+  padding:10px max(24px,env(safe-area-inset-right,0px)) 10px max(24px,env(safe-area-inset-left,0px))}
+.menu-btn{display:none}
+.gsearch{position:relative;flex:1;max-width:520px}
+.gsearch input{width:100%;height:36px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 12px 0 34px;font-size:13.5px}
+.gsearch>svg{position:absolute;left:11px;top:10px;color:var(--muted)}
+.gsearch kbd{position:absolute;right:9px;top:8px;font:11px var(--f-mono);color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(--surface-2)}
+.gres{position:absolute;top:42px;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;max-height:380px;overflow:auto}
+.gres .gi{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer}
+.gres .gi:hover{background:var(--surface-2)}
+.gres .gh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:6px 8px 2px;font-weight:600}
+.top-r{margin-left:auto;display:flex;align-items:center;gap:8px}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:inline-grid;place-items:center;cursor:pointer;position:relative}
+.icon-btn:hover{background:var(--surface-2)}
+.dot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--bad);border:2px solid var(--surface)}
+.me{display:flex;align-items:center;gap:8px;padding:3px 10px 3px 3px;border:1px solid var(--line);border-radius:20px;background:var(--surface);font-size:12.5px}
+.av{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-grid;place-items:center;font-size:11px;font-weight:600;flex:none}
+.av.sm{width:22px;height:22px;font-size:9.5px}
+.pop{position:absolute;right:0;top:44px;width:340px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px;z-index:60}
+.pop .pi{display:flex;gap:10px;padding:9px 8px;border-radius:8px;font-size:13px;cursor:pointer}
+.pop .pi:hover{background:var(--surface-2)}
+.view{width:100%;max-width:1480px;padding-block:24px 56px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.scrim{display:none}
+
+/* type + layout */
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.ph h1{font-size:22px;line-height:1.2;margin:0;font-weight:600;letter-spacing:-.015em;text-wrap:balance}
+.ph p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:68ch}
+.crumb{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.crumb a{cursor:pointer;color:var(--muted);text-decoration:none}
+.crumb a:hover{color:var(--fg)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g-main{grid-template-columns:minmax(0,1fr) 340px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line-2)}
+.panel-h h3{margin:0;font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:center}
+.panel-b{padding:14px 16px}
+.panel-b.flush{padding:0}
+.sub-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;margin:0 0 8px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.pri{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--on-accent)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn .lk{opacity:.75;width:13px;height:13px}
+.btn.locked{position:relative}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:2px}
+.seg button{border:0;background:transparent;height:28px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--muted);transition:background-color .15s,color .15s}
+.seg button.on{background:var(--surface);color:var(--fg);font-weight:600;box-shadow:0 1px 2px rgba(24,24,27,.1),0 0 0 1px var(--line)}
+.inp,.sel{height:34px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 10px;font-size:13px;min-width:0}
+.sel{padding-right:6px}
+textarea.inp{height:auto;padding:8px 10px;resize:vertical}
+.filters{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-2);align-items:center}
+.filters .inp.search{flex:1 1 220px}
+.filters .sel{flex:0 1 auto}
+.filters .rng{display:flex;align-items:center;gap:4px}
+.filters .rng .inp{width:96px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:20px;background:var(--mute-soft);color:var(--fg);white-space:nowrap}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-bad{background:var(--bad-soft);color:var(--bad)} .p-info{background:var(--info-soft);color:var(--info)}
+.p-mute{background:var(--mute-soft);color:var(--muted)} .p-acc{background:var(--accent-soft);color:var(--accent)}
+.tag-test{font:600 10.5px var(--f-mono);letter-spacing:.06em;color:var(--warn);background:var(--warn-soft);border:1px dashed var(--warn);border-radius:4px;padding:1px 6px}
+
+/* tables */
+.tw{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+.t td{padding:9px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.t tr.click{cursor:pointer}
+.t tr.click:hover td{background:var(--surface-2)}
+.t td.r,.t th.r{text-align:right}
+.t .nw{white-space:nowrap}
+.t tr:last-child td{border-bottom:0}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-top:1px solid var(--line-2);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.thumb{width:52px;height:40px;border-radius:6px;display:grid;place-items:center;color:rgba(255,255,255,.9);flex:none;
+  background:linear-gradient(140deg,hsl(calc(var(--h) + 60) 12% var(--thumb-l1)),hsl(calc(var(--h) + 80) 16% var(--thumb-l2)))}
+.cell2{display:flex;align-items:center;gap:10px;min-width:0}
+.cell2 b{font-weight:500;display:block;white-space:nowrap}
+.cell2 small{color:var(--muted);font-size:12px;white-space:nowrap}
+
+/* kpis */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;min-width:0;cursor:pointer}
+.kpi:hover{background:var(--surface-2)}
+.kpi .l{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.kpi .v{font-size:24px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px;line-height:1.2}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi.alert .v{color:var(--bad)}
+.kgrp{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;margin:18px 0 8px}
+
+/* lists */
+.li{display:flex;gap:10px;align-items:flex-start;padding:10px 16px;border-bottom:1px solid var(--line-2)}
+.li:last-child{border-bottom:0}
+.li.click{cursor:pointer}
+.li.click:hover{background:var(--surface-2)}
+.li .main-t{font-size:13px;min-width:0;flex:1}
+.li .main-t small{display:block;color:var(--muted);font-size:12px}
+.ico-b{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;flex:none;background:var(--mute-soft);color:var(--muted)}
+.ico-b.bad{background:var(--bad-soft);color:var(--bad)} .ico-b.ok{background:var(--ok-soft);color:var(--ok)} .ico-b.warn{background:var(--warn-soft);color:var(--warn)} .ico-b.acc{background:var(--accent-soft);color:var(--accent)} .ico-b.info{background:var(--info-soft);color:var(--info)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px}
+.empty svg{width:22px;height:22px;margin-bottom:6px;color:var(--faint)}
+.empty b{display:block;color:var(--fg);font-weight:500;margin-bottom:2px}
+
+/* detail */
+.dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:var(--line-2)}
+.dl>div{background:var(--surface);padding:10px 16px}
+.dl dt{font-size:11.5px;color:var(--muted)}
+.dl dd{margin:2px 0 0;font-size:13.5px;font-weight:500}
+.gallery{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:120px 120px;gap:6px;padding:12px}
+.gallery .ph-img{border-radius:8px;position:relative;display:grid;place-items:center;color:rgba(255,255,255,.9);overflow:hidden;
+  background:linear-gradient(140deg,hsl(calc(var(--h) + 60) 12% var(--thumb-l1)),hsl(calc(var(--h) + 80) 16% var(--thumb-l2)))}
+.gallery .ph-img:first-child{grid-row:span 2}
+.gallery .ph-img svg{width:26px;height:26px}
+.gallery .src{position:absolute;left:8px;bottom:8px;font-size:11px;background:rgba(0,0,0,.45);color:#fff;padding:1px 7px;border-radius:10px}
+.gallery .main-b{position:absolute;left:8px;top:8px;font-size:11px;background:rgba(255,255,255,.9);color:#202421;padding:1px 7px;border-radius:10px;font-weight:600}
+.price-box{padding:16px}
+.price-box .big{font-size:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:11px 10px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button.on{color:var(--fg);border-bottom-color:var(--fg);font-weight:600}
+.tabs button .c{font-size:11px;color:var(--faint);margin-left:4px}
+.tl{position:relative;padding:4px 16px 8px}
+.tl-i{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:8px 0;position:relative}
+.tl-i::before{content:"";position:absolute;left:13.5px;top:38px;bottom:-8px;width:1px;background:var(--line)}
+.tl-i:last-child::before{display:none}
+.tl-i .tt{font-size:13px}
+.tl-i .tt small{display:block;color:var(--muted);font-size:12px}
+.note{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;background:var(--surface-2)}
+.callout{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.45}
+.callout.info{background:var(--info-soft);color:var(--fg)} .callout.info>svg{color:var(--info)}
+.callout.warn{background:var(--warn-soft)} .callout.warn>svg{color:var(--warn)}
+.callout.acc{background:var(--accent-soft)} .callout.acc>svg{color:var(--accent)}
+.callout>svg{margin-top:2px}
+
+/* score */
+.score{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums;flex:none;
+  background:conic-gradient(var(--sc) calc(var(--v)*1%),var(--line) 0);position:relative}
+.score::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface)}
+.score span{position:relative}
+.why{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.why .w{font-size:11.5px;padding:1px 8px;border-radius:12px;display:inline-flex;gap:4px;align-items:center}
+.why .w svg{width:12px;height:12px}
+.w.ok{background:var(--ok-soft);color:var(--ok)} .w.part{background:var(--warn-soft);color:var(--warn)} .w.bad{background:var(--bad-soft);color:var(--bad)}
+.match{display:flex;gap:14px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--line-2)}
+.match.dim{opacity:.62}
+.wt{display:grid;grid-template-columns:90px minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:12.5px;padding:5px 0}
+.wt input{width:100%;accent-color:var(--accent-bg)}
+
+/* chess */
+.chess{display:flex;flex-direction:column;gap:4px;min-width:max-content}
+.chess .fl{display:grid;gap:4px;align-items:stretch}
+.chess .fn{font:500 11px var(--f-mono);color:var(--muted);display:grid;place-items:center}
+.ap{border-radius:6px;padding:5px 7px;font-size:11px;line-height:1.25;cursor:pointer;border:1px solid transparent;min-width:72px;text-align:left;background:none}
+.ap b{font:600 11.5px var(--f-mono);display:block}
+.ap.s-sale{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%,transparent)}
+.ap.s-res{background:var(--warn-soft);color:var(--warn)}
+.ap.s-sold{background:var(--mute-soft);color:var(--faint)}
+.ap.s-off{background:repeating-linear-gradient(135deg,var(--mute-soft) 0 5px,transparent 5px 10px);color:var(--muted);border-color:var(--line)}
+.ap.s-chk{background:var(--bad-soft);color:var(--bad);border:1px dashed var(--bad)}
+.ap.sel{outline:2px solid var(--accent);outline-offset:1px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+
+/* bars */
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar{display:grid;grid-template-columns:150px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:12.5px}
+.bar .track{height:10px;background:var(--line-2);border-radius:5px;overflow:hidden;display:flex}
+.bar .fill{height:100%;background:var(--accent);border-radius:5px}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.stackbar .track{border-radius:5px}
+.stackbar .seg1{background:var(--ok)} .stackbar .seg2{background:var(--warn)} .stackbar .seg3{background:var(--faint)} .stackbar .seg4{background:var(--bad)}
+
+/* kanban */
+.kan{display:grid;grid-template-columns:repeat(6,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+.kcol{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.kcol h4{margin:0 2px 2px;font-size:12.5px;font-weight:600;display:flex;justify-content:space-between}
+.kcard{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
+.kcard .pr{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+
+/* matrix */
+.mx td,.mx th{text-align:center}
+.mx td:first-child,.mx th:first-child{text-align:left}
+.ck{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;border:1px solid var(--line)}
+.ck.on{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--on-accent)}
+.ck svg{width:12px;height:12px;stroke-width:3}
+
+/* tree */
+.tree{font-size:13px}
+.tree .n{display:flex;align-items:center;gap:8px;padding:5px 0}
+.tree .k{margin-left:22px;border-left:1px solid var(--line);padding-left:12px}
+
+/* modal + toast */
+.modal-wrap{position:fixed;inset:0;background:rgba(17,20,18,.42);display:grid;place-items:center;z-index:100;padding:16px}
+.modal{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);width:min(760px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;border:1px solid var(--line)}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal-h h3{margin:0;font-size:15px;font-weight:600}
+.modal-b{padding:16px 18px;overflow-y:auto}
+.modal-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fgrid .full{grid-column:1/-1}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld label{font-size:12px;color:var(--muted);font-weight:500}
+.fld .hint{font-size:11.5px;color:var(--faint)}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:12.5px;background:var(--surface-2)}
+.cbx{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);padding:5px 10px;border-radius:8px;cursor:pointer;background:var(--surface)}
+.cbx input{accent-color:var(--accent-bg)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(460px,calc(100% - 32px))}
+.toast{background:var(--fg);color:var(--bg);border-radius:10px;padding:11px 14px;font-size:13px;display:flex;gap:10px;align-items:flex-start;box-shadow:var(--shadow);animation:tin .18s ease-out;width:100%}
+.toast b{display:block}
+.toast span{opacity:.75}
+@keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}.sb{transition:none!important}}
+
+/* login */
+.login{min-height:calc(100vh - 160px);display:grid;place-items:center}
+.login-card{width:min(400px,100%);background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px}
+.login-card .inp{height:40px}
+
+@media (max-width:1180px){.g-main{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media (max-width:960px){
+  .sb{transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--shadow)}
+  .sb.open{transform:none}
+  .scrim.open{display:block;position:fixed;inset:0;background:rgba(17,20,18,.35);z-index:45}
+  .main{margin-left:0}
+  .menu-btn{display:inline-grid}
+  .g2,.g3{grid-template-columns:minmax(0,1fr)}
+  .view{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .top,.demo-bar{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .me span{display:none}.me{padding-right:3px}
+  .gsearch kbd{display:none}
+}
+@media (max-width:560px){
+  .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .fgrid{grid-template-columns:minmax(0,1fr)}
+  .gallery{grid-template-columns:1fr 1fr;grid-template-rows:140px 90px 90px}
+  .gallery .ph-img:first-child{grid-column:span 2;grid-row:auto}
+  .bar{grid-template-columns:100px minmax(0,1fr) 36px}
+  .top-r .btn span{display:none}
+  .ph h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<aside class="sb" id="sb">
+  <div class="brand"><div class="brand-mark">MEV</div><div><b>MEV</b><span>Real Əmlak · daxili platforma</span></div></div>
+  <nav class="nav" id="nav"></nav>
+  <div class="sb-foot">
+    <a data-go="giris"><i data-lucide="log-in"></i>Giriş ekranına bax</a>
+    <a data-go="haqqinda"><i data-lucide="info"></i>Demo haqqında</a>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<div class="main">
+  <div class="demo-bar"><b>DEMO</b><span>Bütün məlumatlar nümunədir. Baxış və filtrlər işləyir, yazma əməliyyatları kilidlidir.</span></div>
+  <header class="top">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menyu"><i data-lucide="menu"></i></button>
+    <div class="gsearch">
+      <i data-lucide="search"></i>
+      <input id="gq" type="search" placeholder="Elan nömrəsi, ünvan, müştəri adı və ya telefon" autocomplete="off" aria-label="Qlobal axtarış">
+      <kbd>/</kbd>
+      <div class="gres" id="gres" hidden></div>
+    </div>
+    <div class="top-r">
+      <div style="position:relative">
+        <button class="btn pri" id="qaBtn"><i data-lucide="plus"></i><span>Əlavə et</span></button>
+        <div class="pop" id="qaPop" hidden style="width:220px"></div>
+      </div>
+      <div style="position:relative">
+        <button class="icon-btn" id="bellBtn" aria-label="Bildirişlər"><i data-lucide="bell"></i><span class="dot"></span></button>
+        <div class="pop" id="bellPop" hidden></div>
+      </div>
+      <div class="me"><span class="av">OB</span><span>Orxan B. · Administrator</span></div>
+    </div>
+  </header>
+  <main class="view" id="view"></main>
+</div>
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=mulberry32(20261022);
+const pick=a=>a[Math.floor(R()*a.length)];
+const ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+const wpick=p=>{let t=p.reduce((s,x)=>s+x[1],0),x=R()*t;for(const q of p){if((x-=q[1])<0)return q[0]}return p[0][0]};
+const TODAY=new Date();TODAY.setHours(10,0,0,0);
+const day=(n,h)=>{const d=new Date(TODAY.getTime()+n*864e5);if(h!=null)d.setHours(h,ri(0,5)*10,0,0);return d};
+const MON=['yan','fev','mar','apr','may','iyn','iyl','avq','sen','okt','noy','dek'];
+const fD=d=>d?`${d.getDate()} ${MON[d.getMonth()]}${d.getFullYear()!==TODAY.getFullYear()?' '+d.getFullYear():''}`:'–';
+const fT=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const fDT=d=>fD(d)+', '+fT(d);
+const dd=d=>Math.round((new Date(d).setHours(0,0,0,0)-new Date(TODAY).setHours(0,0,0,0))/864e5);
+const rel=d=>{const n=dd(d);return n===0?'bu gün':n===-1?'dünən':n===1?'sabah':n<0?`${-n} gün əvvəl`:`${n} gün sonra`};
+const num=n=>n==null?'–':Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const azn=n=>n==null?'–':num(n)+' AZN';
+const ic=(n,c='')=>`<i data-lucide="${n}"${c?` class="${c}"`:''}></i>`;
+const initials=n=>n.split(' ').map(x=>x[0]).slice(0,2).join('');
+const icons=()=>{try{window.lucide&&lucide.createIcons()}catch(e){}};
+const L=(label,txt,cls='',icon='')=>`<button class="btn ${cls} locked" data-lock="${esc(txt)}">${icon?ic(icon):''}${esc(label)}<i data-lucide="lock" class="lk"></i></button>`;
+
+/* ---------- reference data ---------- */
+const LOC={
+  'Nəsimi':['28 May','Nizami m.','Memar Əcəmi'],'Yasamal':['Yeni Yasamal','İnşaatçılar','Elmlər Akademiyası'],
+  'Nərimanov':['Gənclik','Nərimanov m.','Təbriz küç.'],'Xətai':['Ağ şəhər','Həzi Aslanov','Əhmədli'],
+  'Səbail':['Bayıl','Badamdar','Sahil'],'Nizami':['Qara Qarayev','8-ci km','Neftçilər'],
+  'Binəqədi':['Azadlıq pr.','Dərnəgül','9-cu mkr.'],'Xəzər':['Mərdəkan','Şüvəlan','Buzovna'],
+  'Sabunçu':['Bakıxanov','Ramana'],'Suraxanı':['Qaraçuxur','Hövsan']
+};
+const DISTRICTS=Object.keys(LOC);
+const STREETS=['Ş. Mehdiyev','H. Cavid','Ə. Rəcəbli','Z. Xəlil','A. Məhərrəmov','S. Vurğun','B. Bağırova','N. Rəfibəyli','M. Hadi','İ. Qutqaşınlı'];
+const TYPES=['İkinci əl mənzil','Yeni tikili mənzil','Həyət evi / villa','Torpaq sahəsi','Kommersiya obyekti','Digər'];
+const TICON={'İkinci əl mənzil':'building','Yeni tikili mənzil':'building-2','Həyət evi / villa':'house','Torpaq sahəsi':'map','Kommersiya obyekti':'store','Digər':'box'};
+const PSTAT=['Qaralama','Aktiv','Rezerv edilib','Satılıb','Kirayəyə verilib','Müvəqqəti əlçatan deyil','Arxivləşdirilib'];
+const PCLS={'Qaralama':'p-mute','Aktiv':'p-ok','Rezerv edilib':'p-warn','Satılıb':'p-info','Kirayəyə verilib':'p-info','Müvəqqəti əlçatan deyil':'p-bad','Arxivləşdirilib':'p-mute'};
+const SOURCES=['Əməkdaş','Mülk sahibi','Tövsiyə','Tikinti API (test)','Bitrix idxalı'];
+const REPAIR=['Əla təmirli','Orta təmirli','Təmirsiz','Ağ karkas','Qara karkas'];
+const pill=s=>`<span class="pill ${PCLS[s]||'p-mute'}">${esc(s)}</span>`;
+
+const USERS=[
+  {id:1,name:'Orxan Babayev',role:'Administrator',email:'o.babayev@sirket.az',active:true,last:day(0,9)},
+  {id:2,name:'Günay Əliyeva',role:'Rəhbərlik',email:'g.aliyeva@sirket.az',active:true,last:day(0,8)},
+  {id:3,name:'Aysel Məmmədova',role:'Əmlak agenti',email:'a.mammadova@sirket.az',active:true,last:day(0,9)},
+  {id:4,name:'Rəşad Quliyev',role:'Əmlak agenti',email:'r.quliyev@sirket.az',active:true,last:day(-1,18)},
+  {id:5,name:'Elvin Səfərov',role:'Əmlak agenti',email:'e.seferov@sirket.az',active:true,last:day(0,10)},
+  {id:6,name:'Nigar Həsənova',role:'Müştəri xidmətləri',email:'n.hesenova@sirket.az',active:true,last:day(0,9)},
+  {id:7,name:'Lalə Kərimova',role:'Yalnız oxuma',email:'l.kerimova@sirket.az',active:true,last:day(-3,11)},
+  {id:8,name:'Tərlan Nəbiyev',role:'Əmlak agenti',email:'t.nebiyev@sirket.az',active:false,last:day(-46,16)}
+];
+const U=id=>USERS.find(u=>u.id===id)||{name:'–'};
+const AGENTS=[3,4,5];
+const short=id=>{const n=U(id).name.split(' ');return n[0]+' '+(n[1]||'')[0]+'.'};
+
+/* developers / projects / apartments */
+const DEVS=[
+  {id:'A',name:'Tikinti şirkəti A',contact:'Satış şöbəsi',phone:'+994 12 000 00 01',integ:'test',label:'Test adapteri',
+   note:'Real API sənədi alınana qədər məlumatlar test adapterindən gəlir. İnterfeysdə hər yerdə TEST kimi işarələnir.'},
+  {id:'B',name:'Tikinti şirkəti B',contact:'Marketinq şöbəsi',phone:'+994 12 000 00 02',integ:'wait',label:'API sənədi gözlənilir',
+   note:'Şirkətlə əlaqə qurulub, API sənədi və açar gözlənilir. Qoşulana qədər stok göstərilmir.'},
+  {id:'C',name:'Tikinti şirkəti C',contact:'Direktor müavini',phone:'+994 12 000 00 03',integ:'manual',label:'Əl ilə idarə olunur',
+   note:'API yoxdur. Stok agentlik əməkdaşı tərəfindən əl ilə yenilənir.'}
+];
+const PROJECTS=[
+  {id:'P1',dev:'A',name:'Kompleks A1',district:'Yasamal',area:'Yeni Yasamal',status:'Tikinti gedir · karkas tamamlanıb',ppm:2150,desc:'16 və 12 mərtəbəli iki blok, yeraltı dayanacaq, həyətdə uşaq meydançası.',
+   b:[{id:'P1B1',name:'Blok 1',floors:16,units:6},{id:'P1B2',name:'Blok 2',floors:12,units:4}]},
+  {id:'P2',dev:'A',name:'Kompleks A2',district:'Xətai',area:'Ağ şəhər',status:'Təhvil verilib',ppm:2650,desc:'Bulvara yaxın, kommersiya birinci mərtəbə, qapalı ərazi.',
+   b:[{id:'P2B1',name:'Blok A',floors:14,units:5}]},
+  {id:'P3',dev:'B',name:'Kompleks B1',district:'Nərimanov',area:'Gənclik',status:'Satış başlayıb',ppm:2400,desc:'Metroya 5 dəqiqə, 18 mərtəbəli tək blok.',
+   b:[{id:'P3B1',name:'Blok 1',floors:18,units:4}]},
+  {id:'P4',dev:'C',name:'Kompleks C1',district:'Xəzər',area:'Mərdəkan',status:'Tikinti gedir',ppm:1450,desc:'Bağ zonasında az mərtəbəli kompleks, dənizə 1,2 km.',
+   b:[{id:'P4B1',name:'Blok 1',floors:9,units:4}]}
+];
+const APTS=[];
+const ASTAT={sale:'Satışda',res:'Rezerv',sold:'Satılıb',off:'Satışdan çıxarılıb',chk:'Yoxlama tələb edir'};
+PROJECTS.forEach(p=>{ if(p.dev==='B')return; p.b.forEach(b=>{
+  const pattern=[1,2,3,2,3,4,2,3];
+  for(let f=1;f<=b.floors;f++)for(let u=1;u<=b.units;u++){
+    const rooms=pattern[(u-1)%pattern.length]; const m2=+({1:ri(46,56),2:ri(68,84),3:ri(96,122),4:ri(128,152)}[rooms]+R()).toFixed(1);
+    const ppm=Math.round((p.ppm+(f-1)*12+(R()-.5)*80)/10)*10;
+    let st=wpick([['sale',50],['res',7],['sold',f<5?55:30],['off',3]]);
+    if(p.dev==='A'&&R()<.025)st='chk';
+    APTS.push({id:`${b.id}-${f}-${u}`,pid:p.id,bid:b.id,dev:p.dev,ext:p.dev==='A'?`A-${p.id.slice(1)}${b.id.slice(-1)}-${String(f).padStart(2,'0')}${u}`:'–',
+      no:(f-1)*b.units+u,floor:f,rooms,m2,ppm,price:Math.round(ppm*m2/100)*100,st,upd:p.dev==='A'?day(0,6):day(-ri(3,20),12),src:p.dev==='A'?'Test adapteri':'Əl ilə'});
+  }
+})});
+
+/* properties */
+const PROPS=[];
+for(let i=0;i<54;i++){
+  const type=wpick([['İkinci əl mənzil',48],['Yeni tikili mənzil',18],['Həyət evi / villa',12],['Torpaq sahəsi',8],['Kommersiya obyekti',10],['Digər',2]]);
+  let district=pick(DISTRICTS); let proj=null;
+  if(type==='Yeni tikili mənzil'){proj=pick(PROJECTS.filter(p=>p.dev!=='B'));district=proj.district}
+  if(type==='Həyət evi / villa'||type==='Torpaq sahəsi')district=pick(['Xəzər','Sabunçu','Suraxanı','Binəqədi','Xəzər']);
+  const area=proj?proj.area:pick(LOC[district]);
+  const deal=type==='Torpaq sahəsi'?'Satış':wpick([['Satış',62],['Kirayə',28],['Satış və kirayə',10]]);
+  const isApt=type.includes('mənzil');
+  const rooms=isApt?wpick([[1,12],[2,34],[3,32],[4,16],[5,6]]):type==='Həyət evi / villa'?ri(3,7):null;
+  const m2=isApt?rooms*ri(28,38)+ri(12,22):type==='Həyət evi / villa'?ri(120,420):type==='Torpaq sahəsi'?ri(3,24):type==='Kommersiya obyekti'?ri(40,320):ri(20,80);
+  const floors=isApt?(type==='Yeni tikili mənzil'?ri(12,18):ri(5,16)):type==='Həyət evi / villa'?ri(1,3):type==='Kommersiya obyekti'?ri(1,12):null;
+  const floor=isApt||type==='Kommersiya obyekti'?ri(1,floors):null;
+  const ppm=type==='Torpaq sahəsi'?ri(8,40)*1000:type==='Kommersiya obyekti'?ri(2000,4200):type==='Həyət evi / villa'?ri(1400,3000):ri(1650,3300);
+  const price=deal==='Kirayə'?null:Math.round(m2*ppm/1000)*1000;
+  const rent=deal==='Satış'?null:isApt?Math.round((rooms*ri(240,420)+ri(150,350))/50)*50:type==='Kommersiya obyekti'?Math.round(m2*ri(12,26)/50)*50:Math.round(ri(1200,4000)/100)*100;
+  let status=wpick([['Aktiv',62],['Rezerv edilib',7],['Satılıb',8],['Qaralama',7],['Müvəqqəti əlçatan deyil',6],['Arxivləşdirilib',8]]);
+  if(status==='Satılıb'&&deal==='Kirayə')status='Kirayəyə verilib';
+  const created=day(-ri(1,210),ri(9,18));
+  const upd=day(-Math.min(ri(0,40),-dd(created)),ri(9,18));
+  const ph=[];
+  if(price&&R()<.45){let p0=price;for(let k=0,n=ri(1,2);k<n;k++){p0=Math.round(p0*(1+ri(3,8)/100)/1000)*1000;ph.unshift({v:p0,d:day(dd(created)+ri(0,10),11)})}}
+  if(price)ph.push({v:price,d:ph.length?day(-ri(1,30),12):created});
+  const sh=[{s:'Qaralama',d:created,u:pick(AGENTS)}];
+  if(status!=='Qaralama'){sh.push({s:'Aktiv',d:day(dd(created)+ri(0,2),12),u:pick(AGENTS)});if(status!=='Aktiv')sh.push({s:status,d:day(-ri(0,25),15),u:status==='Satılıb'?2:pick(AGENTS)})}
+  const title=isApt?`${rooms} otaqlı ${type==='Yeni tikili mənzil'?'yeni tikili':'mənzil'}, ${area}`:type==='Həyət evi / villa'?`${rooms} otaqlı həyət evi, ${area}`:type==='Torpaq sahəsi'?`${m2} sot torpaq, ${area}`:type==='Kommersiya obyekti'?`${m2} m² kommersiya obyekti, ${area}`:`Qaraj / anbar, ${area}`;
+  const src=type==='Yeni tikili mənzil'&&proj&&proj.dev==='A'?'Tikinti API (test)':wpick([['Əməkdaş',40],['Mülk sahibi',30],['Tövsiyə',12],['Bitrix idxalı',18]]);
+  PROPS.push({id:i+1,code:`MEV-${1041+i}`,type,deal,district,area,addr:`${pick(STREETS)} küç., ${ri(3,140)}`,rooms,m2,floor,floors,
+    repair:isApt||type==='Həyət evi / villa'?(type==='Yeni tikili mənzil'?pick(['Ağ karkas','Qara karkas','Əla təmirli']):pick(REPAIR.slice(0,3))):null,
+    furnished:isApt?(deal!=='Satış'?R()<.8:R()<.3):null,price,rent,status,agent:pick(AGENTS),src,created,upd,ph,sh,proj:proj?proj.id:null,
+    photos:ri(4,14),hue:ri(80,200),title,owner:null,
+    desc:isApt?`${floor}/${floors} mərtəbə, ${rooms} otaq, ${m2} m². ${pick(['Günəşli tərəf, iki balkon.','Metroya piyada 7 dəqiqə.','Mətbəx-qonaq otağı birləşdirilib.','Kombi istilik, kupçalı.','Həyətə baxır, səssiz yer.'])} ${pick(['Sənədləri hazırdır.','Mülk sahibi danışıq yolu ilə qiyməti müzakirə edir.','Baxış həftəiçi 18:00-dan sonra.'])}`:
+      `${pick(['Əsas yola çıxışı var.','Kommunikasiyalar qoşulub.','Dəniz mənzərəli.','Kupça mövcuddur.'])} ${pick(['Baxış əvvəlcədən razılaşdırılmaqla.','Sahibi tələsik satır.'])}`,
+    notes:R()<.5?pick(['Sahibi yalnız nağd ödəniş istəyir.','Qiymətdə 3-5% endirim mümkündür.','Açar ofisdədir.','İpoteka ilə mümkündür.']):''});
+}
+const P=id=>PROPS.find(p=>p.id===id);
+
+/* customers */
+const FN_M=['Elçin','Rauf','Tural','Kamran','Samir','Vüsal','Anar','Ramil','Fərid','Murad','Cavid','Nicat'];
+const FN_F=['Leyla','Səbinə','Könül','Aytən','Nərmin','Ülviyyə','Sevinc','Aynur','Gülnar','Fidan','Şəbnəm','Röya'];
+const SN=['Məmmədov','Əliyev','Hüseynov','Quliyev','Həsənov','Abbasov','Cəfərov','Rzayev','İsmayılov','Nəsirov','Kazımov','Orucov'];
+const CATS=['Alıcı','Satıcı','Kirayəçi','Ev sahibi'];
+const CATL={'Alıcı':'Almaq istəyir','Satıcı':'Satmaq istəyir','Kirayəçi':'Kirayə axtarır','Ev sahibi':'Kirayəyə verir'};
+const CSTAT=['Yeni','Aktiv axtarışda','Danışıqda','Gözləmədə','Bağlanıb'];
+const CCLS={'Yeni':'p-info','Aktiv axtarışda':'p-ok','Danışıqda':'p-warn','Gözləmədə':'p-mute','Bağlanıb':'p-mute'};
+const CUST=[],REQS=[];
+for(let i=0;i<36;i++){
+  const f=R()<.5; const sn=pick(SN);
+  const name=(f?pick(FN_F):pick(FN_M))+' '+(f?sn+'a':sn);
+  let cats=[wpick([['Alıcı',40],['Kirayəçi',25],['Satıcı',22],['Ev sahibi',13]])];
+  if(R()<.28){const o=cats[0]==='Satıcı'?'Alıcı':cats[0]==='Alıcı'?'Satıcı':cats[0]==='Ev sahibi'?'Alıcı':'Ev sahibi';cats.push(o)}
+  const phone=i===0?'+994 50 000 12 34':`+994 ${pick(['50','51','55','70','77','99','10'])} 000 ${String(ri(10,99))} ${String(ri(10,99))}`;
+  const created=day(-ri(0,180),ri(9,18));
+  const c={id:i+1,code:`M-${2201+i}`,name,phone,email:R()<.45?`${name.split(' ')[0].toLowerCase().replace(/[əüöğışç]/g,m=>({ə:'e',ü:'u',ö:'o',ğ:'g',ı:'i',ş:'s',ç:'c'}[m]))}${ri(1,99)}@mail.az`:'',
+    cats,agent:i%7===3?6:pick(AGENTS),status:wpick([['Yeni',12],['Aktiv axtarışda',44],['Danışıqda',18],['Gözləmədə',16],['Bağlanıb',10]]),
+    created,last:day(-ri(0,24),ri(9,18)),next:R()<.8?day(ri(-3,9),ri(10,17)):null,src:pick(['Zəng','Instagram','Tövsiyə','Ofisə gəliş','Bitrix idxalı']),
+    notes:pick(['Ailə ilə birlikdə baxışa gəlir.','Yalnız axşam saatlarında zəng edin.','İpoteka ilə alır, bank təsdiqi var.','Qərarı tez verir.','Əvvəllər agentliklə işləyib.'])};
+  CUST.push(c);
+  cats.filter(x=>x==='Alıcı'||x==='Kirayəçi').forEach(cat=>{
+    const n=R()<.3?2:1;
+    for(let k=0;k<n;k++){
+      const deal=cat==='Alıcı'?'Satış':'Kirayə';
+      /* most requirements are anchored on a sample listing so the demo shows realistic matches */
+      const pool=PROPS.filter(p=>p.status==='Aktiv'&&p.rooms!=null&&(p.deal===deal||p.deal==='Satış və kirayə')&&(deal==='Satış'||p.type==='İkinci əl mənzil'));
+      const an=R()<.8&&pool.length?pick(pool):null;
+      const type=an?(R()<.25?'İstənilən':an.type):deal==='Kirayə'?'İkinci əl mənzil':wpick([['İkinci əl mənzil',50],['Yeni tikili mənzil',25],['İstənilən',20],['Həyət evi / villa',5]]);
+      const rr=an?an.rooms:type==='Həyət evi / villa'?ri(4,6):wpick([[1,10],[2,40],[3,36],[4,14]]);
+      const rooms=R()<.4?[rr,rr+1]:[rr];
+      const base=an?(deal==='Satış'?an.price:an.rent):deal==='Satış'?(type==='Həyət evi / villa'?ri(300,650)*1000:(rr*33+16)*ri(1900,2900)):rr*330+260;
+      const bmax=deal==='Satış'?Math.round(base*(.98+R()*.3)/5000)*5000:Math.round(base*(.98+R()*.3)/50)*50;
+      const dists=[an?an.district:pick(DISTRICTS)];if(R()<.6)dists.push(pick(DISTRICTS.filter(d=>!dists.includes(d))));if(R()<.25)dists.push(pick(DISTRICTS.filter(d=>!dists.includes(d))));
+      REQS.push({id:REQS.length+1,cid:c.id,deal,type,districts:dists,bmin:Math.round(bmax*.7/(deal==='Satış'?5000:50))*(deal==='Satış'?5000:50),bmax,rooms,
+        amin:an?Math.round(an.m2*.85):type==='Həyət evi / villa'?120:rr*28+10,amax:an?Math.round(an.m2*1.2):type==='Həyət evi / villa'?400:rr*42+30,floor:pick(['','','Birinci və sonuncu olmasın','5-ci mərtəbədən yuxarı']),
+        repair:pick(['','Əla təmirli','Orta təmirli','']),note:pick(['','Uşaq bağçasına yaxın olsun.','Lift mütləqdir.','Dayanacaq yeri olsun.','Ev heyvanına icazə olsun.']),
+        active:c.status!=='Bağlanıb'&&R()>.08,created:day(dd(created)+ri(0,3),12)});
+    }
+  });
+}
+const C=id=>CUST.find(c=>c.id===id);
+/* owners */
+CUST.filter(c=>c.cats.includes('Satıcı')||c.cats.includes('Ev sahibi')).forEach(c=>{
+  const want=c.cats.includes('Satıcı')?['Satış','Satış və kirayə']:['Kirayə','Satış və kirayə'];
+  const free=PROPS.filter(p=>!p.owner&&want.includes(p.deal)&&p.src!=='Tikinti API (test)');
+  const p=free[Math.floor(R()*free.length)];if(p)p.owner=c.id;
+});
+
+/* matching */
+const W0={budget:35,loc:25,rooms:20,area:15,other:5};
+function scoreMatch(p,r,w){
+  const why=[];
+  const dealOk=p.deal===r.deal||p.deal==='Satış və kirayə';
+  if(!dealOk)return{score:0,hard:true,bad:true,why:[{t:'bad',l:'Əməliyyat növü fərqlidir'}]};
+  if(r.type!=='İstənilən'&&r.type!==p.type)return{score:0,hard:true,bad:true,why:[{t:'bad',l:'Əmlak növü fərqlidir'}]};
+  const price=r.deal==='Kirayə'?p.rent:p.price; let got=0,tot=0,bad=false;
+  tot+=w.budget;
+  if(price>=r.bmin&&price<=r.bmax){got+=w.budget;why.push({t:'ok',l:'Büdcəyə uyğundur'})}
+  else if(price<r.bmin){got+=w.budget*.75;why.push({t:'part',l:'Büdcədən aşağıdır'})}
+  else if(price<=r.bmax*1.1){got+=w.budget*.45;why.push({t:'part',l:`Büdcədən ${Math.round((price/r.bmax-1)*100)}% yuxarı`})}
+  else{bad=true;why.push({t:'bad',l:`Büdcədən ${Math.round((price/r.bmax-1)*100)}% yuxarı`})}
+  tot+=w.loc;
+  if(r.districts.includes(p.district)){got+=w.loc;why.push({t:'ok',l:'İstənilən rayondadır'})}else{bad=true;why.push({t:'bad',l:`${p.district} istənilən rayonlardan deyil`})}
+  if(p.rooms!=null&&r.rooms.length){tot+=w.rooms;
+    if(r.rooms.includes(p.rooms)){got+=w.rooms;why.push({t:'ok',l:'Otaq sayı uyğundur'})}
+    else if(r.rooms.some(x=>Math.abs(x-p.rooms)===1)){got+=w.rooms*.4;why.push({t:'part',l:`${p.rooms} otaq (istənilən ${r.rooms.join('-')})`})}
+    else{bad=true;why.push({t:'bad',l:`${p.rooms} otaq, uyğun deyil`})}}
+  if(r.amin||r.amax){tot+=w.area;
+    if(p.m2>=r.amin&&p.m2<=r.amax){got+=w.area;why.push({t:'ok',l:'Sahə tələbinə uyğundur'})}
+    else if(p.m2>=r.amin*.9&&p.m2<=r.amax*1.1){got+=w.area*.5;why.push({t:'part',l:'Sahə həddə yaxındır'})}
+    else why.push({t:'part',l:`Sahə ${p.m2} m²`})}
+  if(r.repair||r.floor){tot+=w.other;let o=0,n=0;
+    if(r.repair){n++;if(p.repair===r.repair){o++;why.push({t:'ok',l:'Təmir tələbinə uyğundur'})}else why.push({t:'part',l:`Təmir: ${p.repair||'göstərilməyib'}`})}
+    if(r.floor&&p.floor!=null){n++;const okF=r.floor.startsWith('Birinci')?(p.floor>1&&p.floor<p.floors):p.floor>=5;if(okF){o++;why.push({t:'ok',l:'Mərtəbə tələbinə uyğundur'})}else why.push({t:'part',l:`Mərtəbə ${p.floor}/${p.floors}`})}
+    got+=n?w.other*o/n:w.other}
+  return{score:tot?Math.round(got/tot*100):0,bad,why};
+}
+const ACTIVEP=()=>PROPS.filter(p=>p.status==='Aktiv');
+function matchesForReq(r,w=S.w){return ACTIVEP().map(p=>({p,...scoreMatch(p,r,w)})).filter(m=>!m.hard).sort((a,b)=>(a.bad-b.bad)||(b.score-a.score))}
+function matchesForProp(p,w=S.w){return REQS.filter(r=>r.active).map(r=>({r,c:C(r.cid),...scoreMatch(p,r,w)})).filter(m=>!m.hard).sort((a,b)=>(a.bad-b.bad)||(b.score-a.score))}
+
+/* offers (PropertyMatch) */
+const OSTAT=['Yeni uyğunluq','Yoxlanılıb','Müştəriyə təklif edilib','Qəbul edilib','Rədd edilib','Artıq aktual deyil'];
+const OCLS={'Yeni uyğunluq':'p-info','Yoxlanılıb':'p-mute','Müştəriyə təklif edilib':'p-warn','Qəbul edilib':'p-ok','Rədd edilib':'p-bad','Artıq aktual deyil':'p-mute'};
+const OFFERS=[];
+REQS.filter(r=>r.active).forEach(r=>{matchesForReq(r,W0).filter(m=>!m.bad).slice(0,3).forEach(m=>{
+  OFFERS.push({id:OFFERS.length+1,rid:r.id,cid:r.cid,pid:m.p.id,score:m.score,status:wpick([['Yeni uyğunluq',30],['Yoxlanılıb',16],['Müştəriyə təklif edilib',28],['Qəbul edilib',8],['Rədd edilib',12],['Artıq aktual deyil',6]]),
+    d:day(-ri(0,20),ri(10,18)),agent:C(r.cid).agent,reason:''});
+})});
+OFFERS.forEach(o=>{if(o.status==='Rədd edilib')o.reason=pick(['Qiymət yüksəkdir','Mərtəbə uyğun gəlmədi','Ərazini bəyənmədi','Təmir zəifdir'])});
+const S0={w:{...W0}};
+
+/* interactions + tasks */
+const ITYPES=['Telefon danışığı','Görüş','Əmlak təqdimatı','Müştərinin cavabı','Daxili qeyd','Digər'];
+const IICON={'Telefon danışığı':'phone','Görüş':'users','Əmlak təqdimatı':'key-round','Müştərinin cavabı':'message-square','Daxili qeyd':'sticky-note','Digər':'circle-dot'};
+const IRES=['Büdcəni 10%-ə qədər artırmağa hazırdır.','Yasamalda variantlara baxmaq istəyir.','Şənbə günü baxış təyin edildi.','Qiymət yüksək gəldi, endirim soruşur.','Ailə ilə məsləhətləşib cavab verəcək.','Sənədlərin surətini istədi.','Təklif olunan mənzili bəyəndi, ikinci baxış istəyir.','Mülk sahibi qiyməti 5 000 AZN endirməyə razıdır.'];
+const INEXT=['Cümə günü geri zəng','Baxışdan sonra rəy almaq','2 yeni variant göndərmək','Sənədləri hüquqşünasa ötürmək','Bazar ertəsi görüş','–'];
+const INTER=[];
+CUST.forEach(c=>{for(let k=0,n=ri(1,5);k<n;k++){const t=wpick([['Telefon danışığı',45],['Görüş',12],['Əmlak təqdimatı',15],['Müştərinin cavabı',14],['Daxili qeyd',10],['Digər',4]]);
+  const off=OFFERS.filter(o=>o.cid===c.id);
+  INTER.push({id:INTER.length+1,cid:c.id,pid:t==='Əmlak təqdimatı'&&off.length?pick(off).pid:null,type:t,d:day(-ri(0,40),ri(9,19)),agent:c.agent,res:pick(IRES),next:pick(INEXT)})}});
+INTER.sort((a,b)=>b.d-a.d);
+const TTITLES=['Baxış təşkil et','Qiymət dəyişikliyini mülk sahibi ilə razılaşdır','Yeni şəkillər çək','Müştəriyə 3 variant göndər','Sənədləri yoxla','Geri zəng et','Kupçanın surətini al','Rezerv müddətini yoxla'];
+const TASKS=[];
+for(let i=0;i<24;i++){const c=pick(CUST);const due=day(ri(-5,8),ri(10,18));const st=dd(due)<-2&&R()<.4?'Tamamlanıb':wpick([['Açıq',60],['İcrada',30],['Tamamlanıb',10]]);
+  const t=pick(TTITLES);const pid=/Baxış|şəkil|Qiymət|Kupça|Rezerv/.test(t)?pick(ACTIVEP()).id:null;
+  TASKS.push({id:i+1,title:t,cid:/şəkil|Kupça/.test(t)?null:c.id,pid,agent:c.agent,due,pr:wpick([['Yüksək',25],['Orta',50],['Aşağı',25]]),st,note:R()<.4?pick(['Açar ofisdədir.','Müştəri axşam saatlarını istəyir.','Rəhbərliyə məlumat ver.']):''})}
+TASKS.sort((a,b)=>a.due-b.due);
+const overdue=()=>TASKS.filter(t=>t.st!=='Tamamlanıb'&&dd(t.due)<0);
+
+/* deals */
+const DSTAGE=['Yeni müraciət','Danışıqlar','Rezerv','Təsdiq gözləyir','Tamamlanıb','Ləğv edilib'];
+const DEALS=[];
+[...OFFERS].sort((a,b)=>(b.status==='Qəbul edilib')-(a.status==='Qəbul edilib')).slice(0,14).forEach((o,i)=>{const p=P(o.pid);const r=REQS.find(x=>x.id===o.rid);
+  const stage=DSTAGE[[0,1,1,2,3,4,4,1,0,5,2,4,1,3][i%14]];const base=r.deal==='Kirayə'?p.rent:p.price;
+  DEALS.push({id:i+1,code:`S-${301+i}`,pid:p.id,cids:p.owner?[o.cid,p.owner]:[o.cid],agent:o.agent,kind:r.deal==='Kirayə'?'Kirayə':'Satış',
+    price:stage==='Yeni müraciət'?null:Math.round(base*(1-ri(0,5)/100)/(r.deal==='Kirayə'?50:1000))*(r.deal==='Kirayə'?50:1000),
+    d:day(-ri(0,30),ri(10,18)),stage,note:stage==='Təsdiq gözləyir'?'Rəhbərlik təsdiqi gözlənilir':stage==='Ləğv edilib'?'Müştəri ipoteka ala bilmədi':''})});
+
+/* sync runs (test adapter only) */
+const RUNS=[];
+for(let i=0;i<14;i++){const d=new Date(TODAY.getTime()-i*6*3600e3);d.setHours([6,0,18,12][i%4],0,0,0);
+  const k=i===3?'err':i===1||i===8?'part':'ok';
+  RUNS.push({id:9000-i,dev:'A',d,kind:i%5===2?'Admin başladıb':'Planlı',k,
+    upd:k==='err'?0:ri(2,14),neu:k==='err'?0:ri(0,3),same:k==='err'?0:ri(150,165),errs:k==='err'?1:k==='part'?ri(1,3):0,dur:ri(4,19),
+    msg:k==='err'?'HTTP 429: sorğu limiti aşıldı. 60 san sonra təkrar cəhd uğurlu oldu (#'+(9001-i)+').':k==='part'?'API cavabında olmayan mənzillər yoxlama növbəsinə əlavə edildi.':'Qiymət və status yeniləmələri tətbiq edildi.'})}
+const CHECKQ=APTS.filter(a=>a.st==='chk');
+
+/* audit */
+const AUDIT=[];
+PROPS.forEach(p=>{if(p.ph.length>1){const a=p.ph[p.ph.length-2],b=p.ph[p.ph.length-1];AUDIT.push({d:b.d,u:p.agent,act:'Qiymət dəyişdirildi',obj:p.code,f:'Qiymət',o:azn(a.v),n:azn(b.v)})}
+  p.sh.slice(1).forEach((s,k)=>AUDIT.push({d:s.d,u:s.u,act:'Status dəyişdirildi',obj:p.code,f:'Status',o:p.sh[k].s,n:s.s}));
+  if(dd(p.created)>-30)AUDIT.push({d:p.created,u:p.agent,act:'Əmlak yaradıldı',obj:p.code,f:'',o:'',n:''})});
+CUST.forEach(c=>{if(dd(c.created)>-30)AUDIT.push({d:c.created,u:c.agent,act:'Müştəri yaradıldı',obj:c.code,f:'',o:'',n:''})});
+REQS.slice(0,6).forEach(r=>AUDIT.push({d:day(-ri(0,12),ri(10,17)),u:C(r.cid).agent,act:'Tələb dəyişdirildi',obj:C(r.cid).code,f:'Maks. büdcə',o:azn(Math.round(r.bmax*.9/1000)*1000),n:azn(r.bmax)}));
+DEALS.slice(0,5).forEach(x=>AUDIT.push({d:x.d,u:x.agent,act:'Sövdələşmə yeniləndi',obj:x.code,f:'Mərhələ',o:DSTAGE[Math.max(0,DSTAGE.indexOf(x.stage)-1)],n:x.stage}));
+RUNS.slice(0,6).forEach(r=>AUDIT.push({d:r.d,u:0,act:'API sinxronizasiyası',obj:'Tikinti şirkəti A (test)',f:'',o:'',n:r.k==='err'?'Xəta, təkrar cəhd':`${r.upd} yeniləmə`}));
+AUDIT.push({d:day(-2,11),u:1,act:'İstifadəçi icazəsi dəyişdirildi',obj:'Nigar Həsənova',f:'Rol',o:'Yalnız oxuma',n:'Müştəri xidmətləri'});
+AUDIT.push({d:day(-9,15),u:1,act:'İstifadəçi deaktiv edildi',obj:'Tərlan Nəbiyev',f:'Status',o:'Aktiv',n:'Deaktiv'});
+AUDIT.sort((a,b)=>b.d-a.d);
+
+/* ---------- state ---------- */
+const S={route:'dashboard',param:null,
+  pf:{q:'',type:'',deal:'',status:'',district:'',rooms:'',agent:'',src:'',proj:'',pmin:'',pmax:'',amin:'',amax:''},ppage:1,
+  cf:{q:'',cat:'',district:'',bmax:'',agent:'',status:''},cpage:1,ptab:'info',ctab:'reqs',
+  proj:'P1',bld:'P1B1',apt:null,mmode:'c2p',mreq:null,mprop:null,w:{...W0},showBad:false,
+  rf:{range:'90',agent:'',district:''},role:'Əmlak agenti',af:{u:'',act:''},tf:{who:'all',st:'open'}};
+
+/* ---------- nav ---------- */
+const NAV=[['Əsas',[['dashboard','layout-dashboard','Dashboard']]],
+  ['Baza',[['emlaklar','building-2','Əmlaklar'],['musteriler','users','Müştərilər'],['tikililer','construction','Yeni tikililər']]],
+  ['Gündəlik iş',[['uygunlasdirma','git-compare-arrows','Uyğunlaşdırma'],['tapsiriqlar','list-checks','Tapşırıqlar və əlaqələr'],['sovdelesmeler','handshake','Satış və sövdələşmələr']]],
+  ['Analitika',[['hesabatlar','chart-column','Hesabatlar']]],
+  ['Sistem',[['inteqrasiyalar','plug','İnteqrasiyalar'],['komanda','shield-check','Komanda və icazələr'],['jurnal','history','Fəaliyyət jurnalı'],['parametrler','settings','Parametrlər']]]];
+const PARENT={emlak:'emlaklar',musteri:'musteriler'};
+function renderNav(){const cur=PARENT[S.route]||S.route;const od=overdue().length;
+  $('#nav').innerHTML=NAV.map(([g,items])=>`<div class="nav-g">${g}</div>`+items.map(([k,i,l])=>`<a data-go="${k}" class="${cur===k?'on':''}">${ic(i)}${l}${k==='tapsiriqlar'&&od?`<span class="cnt">${od}</span>`:''}</a>`).join('')).join('')}
+
+/* ---------- views ---------- */
+const V={};
+const ph=(t,p,actions='')=>`<div class="ph"><div><h1>${t}</h1>${p?`<p>${p}</p>`:''}</div>${actions?`<div class="row">${actions}</div>`:''}</div>`;
+const panel=(title,body,extra='',flush=true)=>`<section class="panel"><div class="panel-h"><h3>${title}</h3>${extra}</div><div class="panel-b ${flush?'flush':''}">${body}</div></section>`;
+const empty=(icon,b,t)=>`<div class="empty">${ic(icon)}<b>${b}</b>${t}</div>`;
+const thumb=p=>`<div class="thumb" style="--h:${p.hue}">${ic(TICON[p.type])}</div>`;
+const priceTxt=p=>p.deal==='Kirayə'?`${azn(p.rent)}<span class="muted"> /ay</span>`:p.deal==='Satış və kirayə'?`${azn(p.price)}<div class="muted" style="font-size:12px">${azn(p.rent)} /ay</div>`:azn(p.price);
+const areaTxt=p=>p.type==='Torpaq sahəsi'?`${p.m2} sot`:`${p.m2} m²`;
+
+V.dashboard=()=>{
+  const act=PROPS.filter(p=>p.status==='Aktiv');
+  const sale=act.filter(p=>p.deal!=='Kirayə').length, rent=act.filter(p=>p.deal!=='Satış').length;
+  const aptAv=APTS.filter(a=>a.st==='sale').length;
+  const reqB=REQS.filter(r=>r.active&&r.deal==='Satış').length, reqR=REQS.filter(r=>r.active&&r.deal==='Kirayə').length;
+  const sellers=CUST.filter(c=>c.cats.includes('Satıcı')||c.cats.includes('Ev sahibi')).length;
+  const newC=CUST.filter(c=>dd(c.created)>=-30).length;
+  const od=overdue(); const done=DEALS.filter(d=>d.stage==='Tamamlanıb').length;
+  const today=TASKS.filter(t=>t.st!=='Tamamlanıb'&&dd(t.due)<=0).slice(0,7);
+  const upcoming=CUST.filter(c=>c.next&&dd(c.next)>=0&&dd(c.next)<=3).sort((a,b)=>a.next-b.next).slice(0,6);
+  const changes=AUDIT.filter(a=>a.act==='Qiymət dəyişdirildi'||a.act==='Status dəyişdirildi').slice(0,7);
+  const k=(icon,l,v,s,go,cls='')=>`<div class="kpi ${cls}" data-go="${go}"><div class="l">${ic(icon)}${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  return ph('Dashboard',`${fD(TODAY)}, ${['bazar','bazar ertəsi','çərşənbə axşamı','çərşənbə','cümə axşamı','cümə','şənbə'][TODAY.getDay()]}. Göstəricilər bazadakı qeydlərdən hesablanır.`,
+      `<button class="btn" data-form="prop">${ic('plus')}Əmlak</button><button class="btn" data-form="cust">${ic('user-plus')}Müştəri</button>`)+
+    `<div class="callout acc" style="margin-bottom:16px">${ic('presentation')}<div><b>Bu, MEV platformasının demo versiyasıdır.</b> Tam versiyada olacaq 12 bölmənin hamısı burada görünür. Rəqəmlər real deyil, nümunə məlumatlardan hesablanır. Kilid işarəli düymələr tam versiyada aktiv olacaq.</div></div>`+
+    `<div class="kgrp">Əmlak bazası</div><div class="kpis">
+      ${k('building-2','Aktiv əmlaklar',act.length,`${PROPS.length} qeyddən`,'emlaklar')}
+      ${k('badge-dollar-sign','Satış elanları',sale,'aktiv','emlaklar')}
+      ${k('key-round','Kirayə elanları',rent,'aktiv','emlaklar')}
+      ${k('construction','Yeni tikililərdə satışda',aptAv,`${PROJECTS.length} kompleks`,'tikililer')}
+    </div>
+    <div class="kgrp">Müştəri bazası</div><div class="kpis">
+      ${k('users','Ümumi müştəri',CUST.length,`${newC} yeni, son 30 gün`,'musteriler')}
+      ${k('search','Aktiv alış tələbləri',reqB,'alıcılar','uygunlasdirma')}
+      ${k('door-open','Aktiv kirayə tələbləri',reqR,'kirayəçilər','uygunlasdirma')}
+      ${k('home','Satıcı və ev sahibləri',sellers,'müştəri','musteriler')}
+    </div>
+    <div class="kgrp">Əməliyyatlar</div><div class="kpis">
+      ${k('alarm-clock','Vaxtı keçmiş tapşırıq',od.length,'diqqət tələb edir','tapsiriqlar',od.length?'alert':'')}
+      ${k('handshake','Tamamlanmış sövdələşmə',done,'bu dövr','sovdelesmeler')}
+      ${k('send','Təklif edilmiş əmlak',OFFERS.filter(o=>o.status==='Müştəriyə təklif edilib').length,'cavab gözlənilir','uygunlasdirma')}
+      ${k('plug','API inteqrasiyaları','1 / 3',`1 test · 1 gözləyir · 1 əl ilə`,'inteqrasiyalar')}
+    </div>
+    <div class="grid g2" style="margin-top:18px">
+      ${panel(`${ic('calendar-check')}Bu gün görüləcək işlər`,today.length?today.map(t=>`<div class="li click" data-go="tapsiriqlar"><div class="ico-b ${dd(t.due)<0?'bad':'acc'}">${ic(dd(t.due)<0?'alarm-clock':'check-square')}</div><div class="main-t">${esc(t.title)}<small>${t.cid?esc(C(t.cid).name)+' · ':''}${t.pid?P(t.pid).code+' · ':''}${short(t.agent)}</small></div><span class="${dd(t.due)<0?'pill p-bad':'chip'}">${rel(t.due)}</span></div>`).join(''):empty('check','Bu gün üçün tapşırıq yoxdur','Yeni tapşırıqlar burada görünəcək.'),`<button class="btn sm ghost" data-go="tapsiriqlar">Hamısı</button>`)}
+      ${panel(`${ic('phone-call')}Yaxınlaşan müştəri əlaqələri`,upcoming.length?upcoming.map(c=>`<div class="li click" data-go="musteri" data-id="${c.id}"><span class="av">${initials(c.name)}</span><div class="main-t">${esc(c.name)}<small>${c.cats.map(x=>CATL[x]).join(' · ')} · ${short(c.agent)}</small></div><span class="chip">${rel(c.next)}, ${fT(c.next)}</span></div>`).join(''):empty('phone','Yaxın 3 gündə planlı əlaqə yoxdur',''))}
+      ${panel(`${ic('activity')}Son qiymət və status dəyişiklikləri`,changes.map(a=>{const p=PROPS.find(x=>x.code===a.obj);return `<div class="li click" data-go="emlak" data-id="${p.id}"><div class="ico-b ${a.f==='Qiymət'?'warn':'info'}">${ic(a.f==='Qiymət'?'tag':'refresh-cw')}</div><div class="main-t"><span class="mono">${a.obj}</span> · ${esc(p.title)}<small>${a.f}: ${esc(a.o)} → <b>${esc(a.n)}</b> · ${short(a.u)}</small></div><span class="faint" style="font-size:12px">${rel(a.d)}</span></div>`}).join(''))}
+      ${panel(`${ic('triangle-alert')}Sinxronizasiya problemləri`,
+        `<div class="li click" data-go="inteqrasiyalar"><div class="ico-b bad">${ic('circle-x')}</div><div class="main-t">Limit xətası, avtomatik təkrar cəhd uğurlu oldu<small>Tikinti şirkəti A <span class="tag-test">TEST</span> · ${fDT(RUNS[3].d)}</small></div></div>
+         <div class="li click" data-go="inteqrasiyalar"><div class="ico-b warn">${ic('eye')}</div><div class="main-t">${CHECKQ.length} mənzil API cavabında görünmür<small>Avtomatik "satılıb" sayılmır, əməkdaş yoxlaması gözləyir</small></div></div>
+         <div class="li click" data-go="inteqrasiyalar"><div class="ico-b">${ic('hourglass')}</div><div class="main-t">Tikinti şirkəti B: API sənədi gözlənilir<small>Qoşulana qədər stok göstərilmir</small></div></div>`)}
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      ${panel(`${ic('building-2')}Son əlavə edilən əmlaklar`,[...PROPS].sort((a,b)=>b.created-a.created).slice(0,5).map(p=>`<div class="li click" data-go="emlak" data-id="${p.id}">${thumb(p)}<div class="main-t">${esc(p.title)}<small><span class="mono">${p.code}</span> · ${p.deal} · ${rel(p.created)}</small></div><div class="num" style="font-size:13px;text-align:right">${priceTxt(p)}</div></div>`).join(''),`<button class="btn sm ghost" data-go="emlaklar">Hamısı</button>`)}
+      ${panel(`${ic('user-plus')}Son əlavə edilən müştərilər`,[...CUST].sort((a,b)=>b.created-a.created).slice(0,5).map(c=>`<div class="li click" data-go="musteri" data-id="${c.id}"><span class="av">${initials(c.name)}</span><div class="main-t">${esc(c.name)}<small>${c.cats.map(x=>CATL[x]).join(' · ')} · ${rel(c.created)}</small></div><span class="pill ${CCLS[c.status]}">${c.status}</span></div>`).join(''),`<button class="btn sm ghost" data-go="musteriler">Hamısı</button>`)}
+    </div>`;
+};
+
+/* properties list */
+function filteredProps(){const f=S.pf,q=f.q.trim().toLowerCase();
+  return PROPS.filter(p=>(!q||(p.code+' '+p.title+' '+p.addr+' '+p.district+' '+p.area).toLowerCase().includes(q))&&(!f.type||p.type===f.type)&&(!f.deal||p.deal===f.deal||p.deal==='Satış və kirayə')
+    &&(!f.status||p.status===f.status)&&(!f.district||p.district===f.district)&&(!f.rooms||(f.rooms==='5'?p.rooms>=5:p.rooms==+f.rooms))&&(!f.agent||p.agent==+f.agent)&&(!f.src||p.src===f.src)&&(!f.proj||p.proj===f.proj)
+    &&(!f.pmin||(p.price??p.rent)>=+f.pmin)&&(!f.pmax||(p.price??p.rent)<=+f.pmax)&&(!f.amin||p.m2>=+f.amin)&&(!f.amax||p.m2<=+f.amax)&&(f.status==='Arxivləşdirilib'||p.status!=='Arxivləşdirilib'||f.status))
+    .sort((a,b)=>b.upd-a.upd)}
+const opt=(v,l,cur)=>`<option value="${esc(v)}"${String(cur)===String(v)?' selected':''}>${esc(l)}</option>`;
+const sel=(key,label,vals,cur,scope='pf')=>`<select class="sel" data-f="${scope}.${key}" aria-label="${label}">${opt('',label,cur)}${vals.map(v=>Array.isArray(v)?opt(v[0],v[1],cur):opt(v,v,cur)).join('')}</select>`;
+V.emlaklar=()=>{const f=S.pf;
+  return ph('Əmlaklar','İkinci əl, yeni tikili, həyət evi, torpaq və kommersiya obyektləri vahid bazada. Arxivləşdirilmiş elanlar yalnız status filtri ilə görünür.',
+    `${L('İxrac','CSV/Excel ixracı tam versiyada aktiv olacaq.','', 'download')}<button class="btn pri" data-form="prop">${ic('plus')}Yeni əmlak</button>`)+
+  `<section class="panel"><div class="filters">
+    <input class="inp search" data-f="pf.q" value="${esc(f.q)}" placeholder="Nömrə, ünvan və ya ərazi" aria-label="Axtarış">
+    ${sel('type','Əmlak növü',TYPES,f.type)}${sel('deal','Satış / kirayə',['Satış','Kirayə'],f.deal)}${sel('status','Status',PSTAT,f.status)}
+    ${sel('district','Rayon',DISTRICTS,f.district)}${sel('rooms','Otaq',[['1','1 otaq'],['2','2 otaq'],['3','3 otaq'],['4','4 otaq'],['5','5+ otaq']],f.rooms)}
+    ${sel('agent','Məsul',AGENTS.map(a=>[a,U(a).name]),f.agent)}${sel('src','Mənbə',SOURCES,f.src)}${sel('proj','Yeni tikili layihəsi',PROJECTS.map(p=>[p.id,p.name]),f.proj)}
+    <div class="rng"><input class="inp" data-f="pf.pmin" value="${esc(f.pmin)}" inputmode="numeric" placeholder="Qiymət, min"><span class="faint">–</span><input class="inp" data-f="pf.pmax" value="${esc(f.pmax)}" inputmode="numeric" placeholder="maks"></div>
+    <div class="rng"><input class="inp" data-f="pf.amin" value="${esc(f.amin)}" inputmode="numeric" placeholder="Sahə, min"><span class="faint">–</span><input class="inp" data-f="pf.amax" value="${esc(f.amax)}" inputmode="numeric" placeholder="maks"></div>
+    <button class="btn ghost sm" data-act="resetPf">${ic('x')}Sıfırla</button>
+  </div><div id="res"></div></section>`};
+function renderPropRes(){const list=filteredProps(),per=12,pages=Math.max(1,Math.ceil(list.length/per));S.ppage=Math.min(S.ppage,pages);
+  const rows=list.slice((S.ppage-1)*per,S.ppage*per);
+  $('#res').innerHTML=list.length?`<div class="tw"><table class="t"><thead><tr><th>Əmlak</th><th>Növ</th><th>Əməliyyat</th><th>Ərazi</th><th class="r">Otaq</th><th class="r">Sahə</th><th class="r">Qiymət</th><th>Status</th><th>Məsul</th><th>Mənbə</th><th>Yenilənib</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr class="click" data-go="emlak" data-id="${p.id}"><td><div class="cell2">${thumb(p)}<div><b>${esc(p.title)}</b><small class="mono">${p.code}</small></div></div></td><td class="nw">${p.type}</td><td class="nw">${p.deal}</td>
+      <td class="nw">${p.district}<div class="muted" style="font-size:12px">${p.area}</div></td><td class="r num">${p.rooms??'–'}</td><td class="r num nw">${areaTxt(p)}</td><td class="r num nw">${priceTxt(p)}</td><td>${pill(p.status)}</td>
+      <td class="nw">${short(p.agent)}</td><td class="nw">${p.src==='Tikinti API (test)'?'<span class="tag-test">API TEST</span>':p.src}</td><td class="nw muted">${rel(p.upd)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="pager"><span>${list.length} nəticə · səhifə ${S.ppage} / ${pages}</span><div class="row"><button class="btn sm" data-act="ppage" data-v="-1" ${S.ppage<=1?'disabled':''}>${ic('chevron-left')}Əvvəlki</button><button class="btn sm" data-act="ppage" data-v="1" ${S.ppage>=pages?'disabled':''}>Növbəti${ic('chevron-right')}</button></div></div>`
+    :empty('search-x','Bu filtrlərə uyğun əmlak tapılmadı','Filtrləri azaldın və ya sıfırlayın.');icons()}
+
+/* property detail */
+function sparkline(ph){if(ph.length<2)return '';const vs=ph.map(x=>x.v),mn=Math.min(...vs),mx=Math.max(...vs),w=220,h=44;
+  const pts=vs.map((v,i)=>[8+i*(w-16)/(vs.length-1),mx===mn?h/2:6+(mx-v)/(mx-mn)*(h-12)]);
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Qiymət dinamikası"><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2"/>${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1?4:3}" fill="${i===pts.length-1?'var(--accent)':'var(--surface)'}" stroke="var(--accent)" stroke-width="1.5"/>`).join('')}</svg>`}
+function planSVG(rooms){const r=Math.max(1,Math.min(rooms||2,5));const W=320,H=190;let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Mənzil planı sxemi" style="max-height:200px"><rect x="6" y="6" width="${W-12}" height="${H-12}" fill="var(--surface-2)" stroke="var(--fg)" stroke-width="3"/>`;
+  const cw=(W-12)/(r+1);for(let i=1;i<=r;i++){s+=`<line x1="${6+cw*i}" y1="6" x2="${6+cw*i}" y2="${H*0.58}" stroke="var(--fg)" stroke-width="1.5"/><text x="${6+cw*(i-0.5)}" y="${H*0.32}" font-size="10" text-anchor="middle" fill="var(--muted)" font-family="Geist,sans-serif">${i===1?'Qonaq':'Otaq '+i}</text>`}
+  s+=`<text x="${6+cw*(r+0.5)}" y="${H*0.32}" font-size="10" text-anchor="middle" fill="var(--muted)" font-family="Geist,sans-serif">Mətbəx</text><line x1="6" y1="${H*0.58}" x2="${W-6}" y2="${H*0.58}" stroke="var(--fg)" stroke-width="1.5" stroke-dasharray="${W*0.18} 26"/>
+  <text x="${W/2}" y="${H*0.8}" font-size="10" text-anchor="middle" fill="var(--muted)" font-family="Geist,sans-serif">Dəhliz · Hamam · Balkon</text></svg>`;return s}
+V.emlak=()=>{const p=P(S.param);if(!p)return empty('circle-help','Əmlak tapılmadı','');const proj=p.proj&&PROJECTS.find(x=>x.id===p.proj);
+  const mt=matchesForProp(p).filter(m=>!m.bad).slice(0,6);const owner=p.owner&&C(p.owner);
+  const fields=[['Əmlak növü',p.type],['Əməliyyat',p.deal],['Şəhər','Bakı'],['Rayon',p.district],['Ərazi',p.area],['Ünvan',p.addr],
+    ...(p.rooms!=null?[['Otaq sayı',p.rooms]]:[]),[p.type==='Torpaq sahəsi'?'Sahə (sot)':'Ümumi sahə',areaTxt(p)],...(p.floor!=null?[['Mərtəbə',`${p.floor} / ${p.floors}`]]:p.floors?[['Mərtəbə sayı',p.floors]]:[]),
+    ...(p.repair?[['Təmir',p.repair]]:[]),...(p.furnished!=null?[['Əşyalı',p.furnished?'Bəli':'Xeyr']]:[]),...(proj?[['Yeni tikili layihəsi',proj.name]]:[]),
+    ['Mənbə',p.src],['Məlumatı verən',owner?owner.name:p.src==='Tikinti API (test)'?'Test adapteri':'Qeyd olunmayıb'],['Yaradılıb',fD(p.created)],['Son yenilənmə',fDT(p.upd)]];
+  const tabs=[['info','Ümumi'],['hist','Tarixçə'],['match',`Uyğun müştərilər`,mt.length],['offers','Təkliflər',OFFERS.filter(o=>o.pid===p.id).length],['notes','Daxili qeydlər']];
+  let tab='';
+  if(S.ptab==='info')tab=`<dl class="dl" style="margin:0">${fields.map(([a,b])=>`<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('')}</dl><div class="panel-b"><div class="sub-h">Təsvir</div><p style="margin:0;max-width:70ch">${esc(p.desc)}</p></div>`;
+  if(S.ptab==='hist')tab=`<div class="grid g2" style="padding:14px 16px"><div><div class="sub-h">Qiymət tarixçəsi</div>${p.ph.length>1?sparkline(p.ph):''}${p.ph.length?p.ph.slice().reverse().map((x,i)=>`<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:13px"><span class="num">${azn(x.v)}</span><span class="muted">${fD(x.d)}${i===0?' · cari':''}</span></div>`).join(''):'<p class="muted">Kirayə elanı üçün qiymət tarixçəsi aylıq məbləğ üzrə saxlanılır.</p>'}</div>
+    <div><div class="sub-h">Status tarixçəsi</div>${p.sh.slice().reverse().map(s=>`<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:13px">${pill(s.s)}<span class="muted">${fD(s.d)} · ${short(s.u)}</span></div>`).join('')}</div></div>`;
+  if(S.ptab==='match')tab=mt.length?mt.map(m=>matchRow(m,'c')).join('')+`<div class="panel-b"><button class="btn sm" data-go="uygunlasdirma" data-act="mprop" data-id="${p.id}">${ic('git-compare-arrows')}Uyğunlaşdırmada aç</button></div>`:empty('users','Uyğun aktiv tələb tapılmadı','Yeni müştəri tələbi əlavə edildikdə burada görünəcək.');
+  if(S.ptab==='offers'){const o=OFFERS.filter(o=>o.pid===p.id);tab=o.length?offerTable(o,'c'):empty('send','Bu əmlak hələ heç kimə təklif edilməyib','')}
+  if(S.ptab==='notes')tab=`<div class="panel-b stack">${p.notes?`<div class="note"><div class="muted" style="font-size:12px;margin-bottom:4px">${short(p.agent)} · ${fD(p.upd)}</div>${esc(p.notes)}</div>`:''}<textarea class="inp" rows="3" placeholder="Daxili qeyd yazın. Yalnız əməkdaşlar görür." id="pnote"></textarea><div>${L('Qeyd əlavə et','Daxili qeydlərin saxlanması tam versiyada aktiv olacaq.','sm')}</div></div>`;
+  return `<div class="crumb"><a data-go="emlaklar">Əmlaklar</a>${ic('chevron-right')}<span class="mono">${p.code}</span></div>`+
+   ph(`${esc(p.title)}`,`<span class="row">${pill(p.status)}<span class="mono">${p.code}</span><span>·</span><span>${p.district}, ${p.area}</span></span>`,
+     `${L('Redaktə et','Əmlakın redaktəsi tam versiyada aktiv olacaq. Hər dəyişiklik audit jurnalına yazılacaq.','', 'pencil')}${L('Statusu dəyiş','Status dəyişikliyi tam versiyada aktiv olacaq. "Satılıb" statusu rəhbərlik təsdiqi tələb edir.','', 'refresh-cw')}${L('Arxivləşdir','Arxivləşdirmə tam versiyada aktiv olacaq. Məlumat silinmir, arxivdən bərpa oluna bilir.','', 'archive')}`)+
+   `<div class="grid g-main"><div class="stack">
+     <section class="panel"><div class="gallery">${[0,1,2,3,4].map(i=>`<div class="ph-img" style="--h:${p.hue+i*14}">${ic(i===4?'layout-grid':TICON[p.type])}${i===0?'<span class="main-b">Əsas şəkil</span>':''}<span class="src">${i===4?`+${Math.max(0,p.photos-4)} şəkil`:p.src==='Tikinti API (test)'?'API (test)':'Əməkdaş yükləyib'}</span></div>`).join('')}</div>
+       <div class="row" style="padding:0 12px 12px;justify-content:space-between"><span class="muted" style="font-size:12.5px">${p.photos} şəkil · sıralama və əsas şəkil seçimi dəstəklənir</span>${L('Şəkil yüklə','Çoxlu şəkil yükləmə, sıralama və əsas şəkil seçimi tam versiyada aktiv olacaq.','sm','upload')}</div></section>
+     <section class="panel"><div class="tabs">${tabs.map(([k,l,c])=>`<button class="${S.ptab===k?'on':''}" data-act="ptab" data-v="${k}">${l}${c!=null?`<span class="c">${c}</span>`:''}</button>`).join('')}</div>${tab}</section>
+   </div><div class="stack">
+     <section class="panel price-box"><div class="muted" style="font-size:12px">${p.deal==='Kirayə'?'Aylıq kirayə':'Satış qiyməti'}</div><div class="big">${p.deal==='Kirayə'?azn(p.rent):azn(p.price)}</div>
+       ${p.deal==='Satış və kirayə'?`<div class="muted num">Kirayə: ${azn(p.rent)} /ay</div>`:''}${p.price&&p.type!=='Torpaq sahəsi'?`<div class="muted num" style="font-size:12.5px">${num(p.price/p.m2)} AZN / m²</div>`:p.price?`<div class="muted num" style="font-size:12.5px">${num(p.price/p.m2)} AZN / sot</div>`:''}
+       ${p.ph.length>1?`<div style="margin-top:10px">${sparkline(p.ph)}<div class="muted" style="font-size:12px">${p.ph.length-1} dəfə dəyişib, ilkin qiymət ${azn(p.ph[0].v)}</div></div>`:''}</section>
+     ${panel('Məsul və mənbə',`<div class="li"><span class="av">${initials(U(p.agent).name)}</span><div class="main-t">${U(p.agent).name}<small>${U(p.agent).role}</small></div></div>
+       <div class="li"><div class="ico-b">${ic('database')}</div><div class="main-t">${p.src==='Tikinti API (test)'?'Tikinti API <span class="tag-test">TEST</span>':p.src}<small>${p.src==='Tikinti API (test)'?'Qiymət və status API-dən yenilənir, təsvir əl ilə':'Bütün sahələr əl ilə daxil edilib'}</small></div></div>
+       ${owner?`<div class="li click" data-go="musteri" data-id="${owner.id}"><span class="av">${initials(owner.name)}</span><div class="main-t">${owner.name}<small>Mülk sahibi · ${owner.phone}</small></div></div>`:''}`)}
+     ${panel('Mənzil planı',`<div style="padding:12px">${p.rooms?planSVG(p.rooms):`<div class="empty" style="padding:14px">${ic('file-image')}<b>Plan yüklənməyib</b>Plan və renderlər PDF və ya şəkil kimi əlavə edilir.</div>`}</div>`)}
+   </div></div>`};
+function matchRow(m,mode){const sc=m.score>=80?'var(--ok)':m.score>=60?'var(--warn)':'var(--bad)';
+  const head=mode==='c'?`<a class="click" data-go="musteri" data-id="${m.c.id}" style="font-weight:500;cursor:pointer;text-decoration:none;color:var(--fg)">${esc(m.c.name)}</a> <span class="muted" style="font-size:12px">· ${m.r.deal==='Satış'?'alır':'kirayə axtarır'}, ${m.r.districts.join(', ')} · ${azn(m.r.bmin)} – ${azn(m.r.bmax)}</span>`
+    :`<a data-go="emlak" data-id="${m.p.id}" style="font-weight:500;cursor:pointer;text-decoration:none;color:var(--fg)">${esc(m.p.title)}</a> <span class="muted" style="font-size:12px">· <span class="mono">${m.p.code}</span> · ${areaTxt(m.p)} · ${m.r_deal==='Kirayə'?azn(m.p.rent)+' /ay':azn(m.p.price??m.p.rent)}</span>`;
+  const off=mode==='p'&&S.mreq?OFFERS.find(o=>o.pid===m.p.id&&o.rid===S.mreq):mode==='c'?OFFERS.find(o=>o.rid===m.r.id&&o.pid===S.param):null;
+  return `<div class="match ${m.bad?'dim':''}"><div class="score" style="--v:${m.score};--sc:${sc}"><span>${m.score}</span></div><div style="flex:1;min-width:0">${head}
+    <div class="why">${m.why.map(w=>`<span class="w ${w.t}">${ic(w.t==='ok'?'check':w.t==='part'?'minus':'x')}${esc(w.l)}</span>`).join('')}</div></div>
+    <div class="row" style="flex:none">${off?`<span class="pill ${OCLS[off.status]}">${off.status}</span>`:m.bad?'<span class="pill p-bad">Uyğunsuz</span>':`<span class="pill p-info">Yeni uyğunluq</span>`}${m.bad?'':L('Təklif et','Təklifin qeydə alınması tam versiyada aktiv olacaq. Müştəriyə avtomatik mesaj göndərilmir, əlaqəni əməkdaş özü saxlayır.','sm')}</div></div>`}
+function offerTable(list,mode){return `<div class="tw"><table class="t"><thead><tr><th>${mode==='c'?'Müştəri':'Əmlak'}</th><th class="r">Bal</th><th>Status</th><th>Səbəb / qeyd</th><th>Məsul</th><th>Tarix</th></tr></thead><tbody>
+  ${list.map(o=>{const p=P(o.pid),c=C(o.cid);return `<tr class="click" data-go="${mode==='c'?'musteri':'emlak'}" data-id="${mode==='c'?c.id:p.id}"><td>${mode==='c'?esc(c.name):`<div class="cell2">${thumb(p)}<div><b>${esc(p.title)}</b><small class="mono">${p.code}</small></div></div>`}</td><td class="r num">${o.score}</td><td><span class="pill ${OCLS[o.status]}">${o.status}</span></td><td class="muted">${esc(o.reason||'–')}</td><td class="nw">${short(o.agent)}</td><td class="nw muted">${fD(o.d)}</td></tr>`}).join('')}</tbody></table></div>`}
+
+/* customers */
+function filteredCust(){const f=S.cf,q=f.q.trim().toLowerCase().replace(/\s/g,'');
+  return CUST.filter(c=>{const rq=REQS.filter(r=>r.cid===c.id);
+    return (!q||(c.name+c.phone+c.code+c.email).toLowerCase().replace(/\s/g,'').includes(q))&&(!f.cat||c.cats.includes(f.cat))&&(!f.district||rq.some(r=>r.districts.includes(f.district)))
+      &&(!f.bmax||rq.some(r=>r.bmax<=+f.bmax))&&(!f.agent||c.agent==+f.agent)&&(!f.status||c.status===f.status)}).sort((a,b)=>b.last-a.last)}
+V.musteriler=()=>{const f=S.cf;
+  return ph('Müştərilər','Bir şəxs, bir profil. Eyni müştəri həm satıcı, həm alıcı ola bilər, bir neçə tələbi ola bilər.',
+   `${L('İxrac','Müştəri məlumatlarının ixracı xüsusi icazə ilə məhdudlaşdırılacaq və jurnala yazılacaq.','', 'download')}<button class="btn pri" data-form="cust">${ic('user-plus')}Yeni müştəri</button>`)+
+  `<section class="panel"><div class="filters">
+    <input class="inp search" data-f="cf.q" value="${esc(f.q)}" placeholder="Ad, telefon və ya e-poçt" aria-label="Axtarış">
+    ${sel('cat','Kateqoriya',CATS.map(c=>[c,CATL[c]]),f.cat,'cf')}${sel('district','Ərazi (tələb)',DISTRICTS,f.district,'cf')}
+    ${sel('bmax','Büdcə (maks.)',[['100000','100 000 AZN-dək'],['200000','200 000 AZN-dək'],['350000','350 000 AZN-dək'],['1000','1 000 AZN/ay-dək']],f.bmax,'cf')}
+    ${sel('agent','Məsul',[...AGENTS,6].map(a=>[a,U(a).name]),f.agent,'cf')}${sel('status','Vəziyyət',CSTAT,f.status,'cf')}
+    <button class="btn ghost sm" data-act="resetCf">${ic('x')}Sıfırla</button></div><div id="res"></div></section>`};
+function reqSummary(r){return `${r.deal==='Satış'?'Alır':'Kirayə'}: ${r.rooms.join('-')} otaq, ${r.districts.join(', ')}`}
+function renderCustRes(){const list=filteredCust(),per=12,pages=Math.max(1,Math.ceil(list.length/per));S.cpage=Math.min(S.cpage,pages);const rows=list.slice((S.cpage-1)*per,S.cpage*per);
+  $('#res').innerHTML=list.length?`<div class="tw"><table class="t"><thead><tr><th>Müştəri</th><th>Telefon</th><th>E-poçt</th><th>Kateqoriya</th><th>Əsas tələb</th><th class="r">Büdcə</th><th>Məsul</th><th>Son əlaqə</th><th>Növbəti əlaqə</th><th>Vəziyyət</th></tr></thead><tbody>
+  ${rows.map(c=>{const r=REQS.find(x=>x.cid===c.id&&x.active)||REQS.find(x=>x.cid===c.id);const own=PROPS.find(p=>p.owner===c.id);
+    return `<tr class="click" data-go="musteri" data-id="${c.id}"><td><div class="cell2"><span class="av">${initials(c.name)}</span><div><b>${esc(c.name)}</b><small class="mono">${c.code}</small></div></div></td>
+    <td class="nw num">${c.phone}</td><td class="muted">${c.email||'–'}</td><td><div class="row" style="gap:4px">${c.cats.map(x=>`<span class="chip acc">${CATL[x]}</span>`).join('')}</div></td>
+    <td class="nw">${r?reqSummary(r):own?`Satır: ${esc(own.title)}`:'–'}</td><td class="r num nw">${r?azn(r.bmax)+(r.deal==='Kirayə'?' /ay':''):'–'}</td><td class="nw">${short(c.agent)}</td>
+    <td class="nw muted">${rel(c.last)}</td><td class="nw">${c.next?`<span class="${dd(c.next)<0?'pill p-bad':'chip'}">${rel(c.next)}</span>`:'<span class="faint">planlanmayıb</span>'}</td><td><span class="pill ${CCLS[c.status]}">${c.status}</span></td></tr>`}).join('')}</tbody></table></div>
+  <div class="pager"><span>${list.length} müştəri · səhifə ${S.cpage} / ${pages}</span><div class="row"><button class="btn sm" data-act="cpage" data-v="-1" ${S.cpage<=1?'disabled':''}>${ic('chevron-left')}Əvvəlki</button><button class="btn sm" data-act="cpage" data-v="1" ${S.cpage>=pages?'disabled':''}>Növbəti${ic('chevron-right')}</button></div></div>`
+  :empty('search-x','Müştəri tapılmadı','Telefonu boşluqsuz yazmağı və ya filtrləri sıfırlamağı yoxlayın.');icons()}
+
+V.musteri=()=>{const c=C(S.param);if(!c)return empty('circle-help','Müştəri tapılmadı','');
+  const rq=REQS.filter(r=>r.cid===c.id),own=PROPS.filter(p=>p.owner===c.id),off=OFFERS.filter(o=>o.cid===c.id),it=INTER.filter(i=>i.cid===c.id),tk=TASKS.filter(t=>t.cid===c.id);
+  const hist=[{d:c.created,t:'Profil yaradıldı',u:c.agent,x:`Mənbə: ${c.src}`},...rq.map(r=>({d:r.created,t:'Tələb əlavə edildi',u:c.agent,x:reqSummary(r)})),...(c.cats.length>1?[{d:day(dd(c.created)+ri(1,20),12),t:'Kateqoriya əlavə edildi',u:c.agent,x:CATL[c.cats[1]]}]:[])].sort((a,b)=>b.d-a.d);
+  const tabs=[['reqs','Tələblər',rq.length],['own','Əmlakları',own.length],['offers','Təklif edilənlər',off.length],['inter','Əlaqələr',it.length],['tasks','Tapşırıqlar',tk.length],['notes','Qeydlər'],['hist','Dəyişiklik tarixçəsi']];
+  let tab='';
+  if(S.ctab==='reqs')tab=rq.length?rq.map(r=>{const m=matchesForReq(r).filter(x=>!x.bad);return `<div class="panel-b" style="border-bottom:1px solid var(--line-2)"><div class="row" style="justify-content:space-between;margin-bottom:8px"><div class="row"><b>${r.deal==='Satış'?'Almaq istəyir':'Kirayə axtarır'}</b><span class="pill ${r.active?'p-ok':'p-mute'}">${r.active?'Aktiv':'Passiv'}</span></div>
+      <div class="row"><button class="btn sm" data-act="mreq" data-id="${r.id}">${ic('git-compare-arrows')}${m.length} uyğun əmlak</button>${L('Redaktə','Tələbin redaktəsi tam versiyada aktiv olacaq.','sm')}</div></div>
+      <dl class="dl" style="margin:0 -16px -14px">${[['Əmlak növü',r.type],['Ərazi',r.districts.join(', ')],['Büdcə',`${azn(r.bmin)} – ${azn(r.bmax)}${r.deal==='Kirayə'?' /ay':''}`],['Otaq',r.rooms.join(' və ya ')],['Sahə',`${r.amin} – ${r.amax} m²`],['Mərtəbə',r.floor||'Fərq etməz'],['Təmir',r.repair||'Fərq etməz'],['Qeyd',r.note||'–']].map(([a,b])=>`<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('')}</dl></div>`}).join('')
+    :empty('search','Axtarış tələbi yoxdur',c.cats.includes('Satıcı')||c.cats.includes('Ev sahibi')?'Bu müştəri satıcı və ya ev sahibidir. Əmlakları "Əmlakları" bölməsindədir.':'');
+  if(S.ctab==='own')tab=own.length?`<div class="tw"><table class="t"><tbody>${own.map(p=>`<tr class="click" data-go="emlak" data-id="${p.id}"><td><div class="cell2">${thumb(p)}<div><b>${esc(p.title)}</b><small class="mono">${p.code}</small></div></div></td><td>${p.deal}</td><td class="r num">${priceTxt(p)}</td><td>${pill(p.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('home','Bu müştərinin satdığı və ya kirayəyə verdiyi əmlak yoxdur','');
+  if(S.ctab==='offers')tab=off.length?offerTable(off,'p'):empty('send','Hələ təklif edilmiş əmlak yoxdur','');
+  if(S.ctab==='inter')tab=`<div class="panel-b" style="border-bottom:1px solid var(--line-2)">${L('Əlaqə qeyd et','Əlaqənin qeydə alınması tam versiyada aktiv olacaq: növ, tarix, nəticə və növbəti addım.','sm','plus')}</div><div class="tl">${it.map(i=>`<div class="tl-i"><div class="ico-b acc">${ic(IICON[i.type])}</div><div class="tt"><b>${i.type}</b>${i.pid?` · <a data-go="emlak" data-id="${i.pid}" style="cursor:pointer" class="mono">${P(i.pid).code}</a>`:''}<small>${fDT(i.d)} · ${short(i.agent)}</small><div style="margin-top:3px">${esc(i.res)}</div>${i.next!=='–'?`<small>Növbəti addım: ${esc(i.next)}</small>`:''}</div></div>`).join('')}</div>`;
+  if(S.ctab==='tasks')tab=tk.length?taskRows(tk):empty('list-checks','Bu müştəri üzrə tapşırıq yoxdur','');
+  if(S.ctab==='notes')tab=`<div class="panel-b stack"><div class="note"><div class="muted" style="font-size:12px;margin-bottom:4px">${short(c.agent)} · ${fD(c.created)}</div>${esc(c.notes)}</div><textarea class="inp" rows="3" placeholder="Daxili qeyd" id="cnote"></textarea><div>${L('Qeyd əlavə et','Qeydlərin saxlanması tam versiyada aktiv olacaq.','sm')}</div></div>`;
+  if(S.ctab==='hist')tab=`<div class="tl">${hist.map(h=>`<div class="tl-i"><div class="ico-b">${ic('history')}</div><div class="tt">${h.t}<small>${fDT(h.d)} · ${short(h.u)} · ${esc(h.x)}</small></div></div>`).join('')}</div>`;
+  return `<div class="crumb"><a data-go="musteriler">Müştərilər</a>${ic('chevron-right')}<span class="mono">${c.code}</span></div>`+
+   ph(esc(c.name),`<span class="row">${c.cats.map(x=>`<span class="chip acc">${CATL[x]}</span>`).join('')}<span class="pill ${CCLS[c.status]}">${c.status}</span></span>`,
+    `${L('Redaktə et','Profilin redaktəsi tam versiyada aktiv olacaq.','', 'pencil')}${L('Kateqoriya əlavə et','Kateqoriya əlavə etmək tam versiyada aktiv olacaq. Yeni profil yaranmır, mövcud profilə ehtiyac əlavə olunur.','', 'tag')}${L('Tapşırıq yarat','Tapşırıq yaratmaq tam versiyada aktiv olacaq.','', 'calendar-plus')}`)+
+   `<div class="grid g-main"><section class="panel" style="min-width:0"><div class="tabs">${tabs.map(([k,l,n])=>`<button class="${S.ctab===k?'on':''}" data-act="ctab" data-v="${k}">${l}${n!=null?`<span class="c">${n}</span>`:''}</button>`).join('')}</div>${tab}</section>
+   <div class="stack">${panel('Əsas məlumatlar',`<dl class="dl" style="grid-template-columns:1fr">${[['Telefon',c.phone],['E-poçt',c.email||'–'],['Mənbə',c.src],['Məsul əməkdaş',U(c.agent).name],['Son əlaqə',fDT(c.last)],['Növbəti əlaqə',c.next?fDT(c.next):'Planlanmayıb'],['Profil yaradılıb',fD(c.created)]].map(([a,b])=>`<div><dt>${a}</dt><dd class="${a==='Telefon'?'num':''}">${esc(b)}</dd></div>`).join('')}</dl>`)}
+   <div class="callout info">${ic('shield')}<div>Müştəri məlumatları məxfidir. Profilə hər baxış və dəyişiklik rol icazəsi ilə yoxlanılır və jurnala yazılır.</div></div></div></div>`};
+function taskRows(list){return list.map(t=>{const late=t.st!=='Tamamlanıb'&&dd(t.due)<0;return `<div class="li"><div class="ico-b ${t.st==='Tamamlanıb'?'ok':late?'bad':'acc'}">${ic(t.st==='Tamamlanıb'?'check':late?'alarm-clock':'circle-dashed')}</div>
+  <div class="main-t">${t.st==='Tamamlanıb'?`<s class="muted">${esc(t.title)}</s>`:esc(t.title)}<small>${t.cid?`<a data-go="musteri" data-id="${t.cid}" style="cursor:pointer">${esc(C(t.cid).name)}</a> · `:''}${t.pid?`<a data-go="emlak" data-id="${t.pid}" style="cursor:pointer" class="mono">${P(t.pid).code}</a> · `:''}${short(t.agent)}${t.note?' · '+esc(t.note):''}</small></div>
+  <span class="pill ${t.pr==='Yüksək'?'p-bad':t.pr==='Orta'?'p-warn':'p-mute'}">${t.pr}</span><span class="${late?'pill p-bad':'chip'}" style="min-width:86px;justify-content:center">${rel(t.due)}</span></div>`}).join('')}
+
+/* new builds */
+V.tikililer=()=>{const pr=PROJECTS.find(p=>p.id===S.proj),dev=DEVS.find(d=>d.id===pr.dev),b=pr.b.find(x=>x.id===S.bld)||pr.b[0];S.bld=b.id;
+  const ap=APTS.filter(a=>a.bid===b.id);const all=APTS.filter(a=>a.pid===pr.id);const cnt=k=>all.filter(a=>a.st===k).length;
+  const sel=S.apt&&APTS.find(a=>a.id===S.apt&&a.bid===b.id);
+  const ib=d=>d.integ==='test'?'<span class="tag-test">TEST ADAPTER</span>':d.integ==='wait'?'<span class="pill p-warn">Sənəd gözlənilir</span>':'<span class="pill p-mute">Əl ilə</span>';
+  return ph('Yeni tikililər','Tikinti şirkəti → yaşayış kompleksi → bina → mənzil. Qiymət və stok tikinti şirkətinin mənbəyinə əsaslanır.',
+     `${L('Tikinti şirkəti əlavə et','Tikinti şirkətinin əlavə edilməsi tam versiyada aktiv olacaq.','', 'plus')}`)+
+  `<div class="grid g3" style="margin-bottom:16px">${DEVS.map(d=>{const ps=PROJECTS.filter(p=>p.dev===d.id);const av=APTS.filter(a=>a.dev===d.id&&a.st==='sale').length;
+    return `<section class="panel"><div class="panel-b"><div class="row" style="justify-content:space-between"><b>${d.name}</b>${ib(d)}</div>
+      <div class="muted" style="font-size:12.5px;margin-top:4px">${d.contact} · <span class="num">${d.phone}</span></div>
+      <div class="row" style="margin-top:10px;gap:16px;font-size:12.5px"><span><b class="num">${ps.length}</b> <span class="muted">kompleks</span></span><span><b class="num">${d.integ==='wait'?'–':av}</b> <span class="muted">satışda</span></span><span class="muted">Son sinx.: ${d.integ==='test'?fT(RUNS[0].d)+', bu gün':'–'}</span></div>
+      <div class="row" style="margin-top:10px;gap:6px">${ps.map(p=>`<button class="btn sm ${p.id===S.proj?'pri':''}" data-act="proj" data-v="${p.id}">${p.name}</button>`).join('')}</div></div></section>`}).join('')}</div>
+  <section class="panel"><div class="panel-h"><h3>${ic('building-2')}${pr.name} <span class="muted" style="font-weight:400">· ${pr.district}, ${pr.area} · ${dev.name}</span></h3><div class="row">${ib(dev)}</div></div>
+   <div class="panel-b" style="border-bottom:1px solid var(--line-2)"><div class="row" style="justify-content:space-between;gap:16px"><div style="max-width:60ch"><div class="muted" style="font-size:12.5px">${pr.status}</div><div style="margin-top:2px">${pr.desc}</div></div>
+    <div class="row" style="gap:18px">${[['Satışda','sale','var(--ok)'],['Rezerv','res','var(--warn)'],['Satılıb','sold','var(--faint)'],['Yoxlama','chk','var(--bad)']].map(([l,k,c])=>`<div><div class="muted" style="font-size:12px">${l}</div><div class="num" style="font-size:20px;font-weight:600;color:${c}">${cnt(k)}</div></div>`).join('')}</div></div></div>
+   ${dev.integ==='wait'?empty('hourglass','Stok məlumatı yoxdur','Bu şirkətin API-si qoşulandan sonra mənzillər avtomatik görünəcək. Uydurma stok göstərilmir.'):
+   `<div class="panel-b"><div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="seg">${pr.b.map(x=>`<button class="${x.id===b.id?'on':''}" data-act="bld" data-v="${x.id}">${x.name} · ${x.floors} mərt.</button>`).join('')}</div>
+     <div class="legend"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>Satışda</span><span><i style="background:var(--warn-soft)"></i>Rezerv</span><span><i style="background:var(--mute-soft)"></i>Satılıb</span><span><i style="background:repeating-linear-gradient(135deg,var(--mute-soft) 0 3px,transparent 3px 6px);border:1px solid var(--line)"></i>Satışdan çıxarılıb</span><span><i style="background:var(--bad-soft);border:1px dashed var(--bad)"></i>API-də görünmür, yoxlanılır</span></div></div>
+     <div class="grid" style="grid-template-columns:minmax(0,1fr) ${sel?'300px':'0px'};gap:${sel?16:0}px"><div class="tw"><div class="chess">${Array.from({length:b.floors},(_,i)=>b.floors-i).map(f=>`<div class="fl" style="grid-template-columns:34px repeat(${b.units},minmax(78px,1fr))"><div class="fn">${f}</div>${ap.filter(a=>a.floor===f).map(a=>`<button class="ap s-${a.st} ${sel&&sel.id===a.id?'sel':''}" data-act="apt" data-v="${a.id}" title="${ASTAT[a.st]}"><b>№${a.no}</b>${a.rooms} ot · ${a.m2}</button>`).join('')}</div>`).join('')}</div></div>
+     ${sel?`<div class="panel" style="align-self:start"><div class="panel-h"><h3>Mənzil №${sel.no}</h3><button class="btn sm ghost" data-act="apt" data-v="">${ic('x')}</button></div>
+       <dl class="dl" style="grid-template-columns:1fr 1fr">${[['Status',ASTAT[sel.st]],['Mərtəbə',sel.floor+' / '+b.floors],['Otaq',sel.rooms],['Sahə',sel.m2+' m²'],['m² qiyməti',azn(sel.ppm)],['Qiymət',azn(sel.price)],['Hesablama','m² qiyməti × sahə'],['Şirkət ID',sel.ext],['Mənbə',sel.src],['Yenilənib',fDT(sel.upd)]].map(([a,v])=>`<div><dt>${a}</dt><dd class="${/qiym|ID/i.test(a)?'num':''}">${esc(v)}</dd></div>`).join('')}</dl>
+       ${sel.st==='chk'?`<div class="panel-b"><div class="callout warn">${ic('eye')}<div>Bu mənzil son sinxronizasiyada API cavabında yoxdur. Sistem onu avtomatik "satılıb" saymır. Əməkdaş tikinti şirkəti ilə yoxlayıb təsdiqləməlidir.</div></div></div>`:''}
+       <div class="panel-b row">${L('Müştəriyə təklif et','Təklifin qeydə alınması tam versiyada aktiv olacaq.','sm pri')}${L('Plan / render','Plan və renderlər API-dən gəldikdə burada göstəriləcək.','sm')}</div></div>`:'<div></div>'}</div></div>`}
+  </section>`};
+
+/* matching */
+V.uygunlasdirma=()=>{const reqs=REQS.filter(r=>r.active);if(!S.mreq)S.mreq=reqs[0].id;if(!S.mprop)S.mprop=ACTIVEP()[0].id;
+  const wsum=Object.values(S.w).reduce((a,b)=>a+b,0)||1;
+  const W=[['budget','Büdcə'],['loc','Ərazi'],['rooms','Otaq sayı'],['area','Sahə'],['other','Digər']];
+  const counts=OSTAT.map(s=>[s,OFFERS.filter(o=>o.status===s).length]);
+  return ph('Uyğunlaşdırma','Müştəri tələbinə uyğun əmlakları və əmlaka uyğun müştəriləri tapır. Bal 0-100 arasıdır, hər nəticənin səbəbi göstərilir.',
+    `<div class="seg"><button class="${S.mmode==='c2p'?'on':''}" data-act="mmode" data-v="c2p">Müştəri → Əmlak</button><button class="${S.mmode==='p2c'?'on':''}" data-act="mmode" data-v="p2c">Əmlak → Müştəri</button></div>`)+
+  `<div class="panel" style="margin-bottom:16px"><div class="panel-b row" style="gap:6px 18px">${counts.map(([s,n])=>`<span class="row" style="gap:6px"><span class="pill ${OCLS[s]}">${s}</span><b class="num">${n}</b></span>`).join('')}</div></div>
+  <div class="grid g-main"><section class="panel" style="min-width:0"><div class="filters">
+    ${S.mmode==='c2p'?`<select class="sel" data-f="mreq" style="flex:1;min-width:0" aria-label="Müştəri tələbi">${reqs.map(r=>opt(r.id,`${C(r.cid).name} · ${reqSummary(r)} · ${num(r.bmax)} AZN-dək`,S.mreq)).join('')}</select>`
+     :`<select class="sel" data-f="mprop" style="flex:1;min-width:0" aria-label="Əmlak">${ACTIVEP().map(p=>opt(p.id,`${p.code} · ${p.title} · ${p.deal==='Kirayə'?num(p.rent)+' AZN/ay':num(p.price)+' AZN'}`,S.mprop)).join('')}</select>`}
+    <label class="cbx"><input type="checkbox" data-f="showBad" ${S.showBad?'checked':''}>Uyğunsuzları da göstər</label></div><div id="mres"></div></section>
+   <div class="stack">${panel('Meyar çəkiləri',`<div class="panel-b" style="padding-top:8px">${W.map(([k,l])=>`<div class="wt"><label for="w_${k}">${l}</label><input id="w_${k}" type="range" min="0" max="50" value="${S.w[k]}" data-w="${k}"><span class="num" style="text-align:right" id="wv_${k}">${Math.round(S.w[k]/wsum*100)}%</span></div>`).join('')}
+     <div class="muted" style="font-size:12px;margin-top:6px">Çəkiləri dəyişin, bal dərhal yenidən hesablanır. Uyğunsuz ərazi, büdcə və ya otaq sayı nəticəni "Uyğunsuz" kimi işarələyir.</div>
+     <div class="row" style="margin-top:10px"><button class="btn sm" data-act="wreset">Standart</button>${L('Parametr kimi saxla','Çəkilərin saxlanması tam versiyada administrator icazəsi ilə aktiv olacaq.','sm')}</div></div>`,'',false)}
+     <div class="callout info">${ic('message-square-off')}<div>Sistem müştəriyə avtomatik SMS, WhatsApp və ya e-poçt göndərmir. Təklifi əməkdaş özü edir və nəticəni qeyd edir.</div></div></div></div>`};
+function renderMatchRes(){let list;
+  if(S.mmode==='c2p'){const r=REQS.find(x=>x.id===S.mreq);list=matchesForReq(r).map(m=>({...m,r_deal:r.deal}))}
+  else{const p=P(S.mprop);list=matchesForProp(p)}
+  const good=list.filter(m=>!m.bad),shown=S.showBad?list:good;
+  $('#mres').innerHTML=`<div class="panel-b muted" style="font-size:12.5px;border-bottom:1px solid var(--line-2)">${good.length} uyğun nəticə${S.showBad?`, ${list.length-good.length} uyğunsuz`:''}</div>`+
+   (shown.length?shown.slice(0,25).map(m=>S.mmode==='c2p'?matchRow(m,'p'):matchRow(m,'c')).join(''):empty('search-x','Uyğun nəticə tapılmadı','"Uyğunsuzları da göstər" ilə səbəbləri görə bilərsiniz.'));icons()}
+
+/* tasks */
+V.tapsiriqlar=()=>{const f=S.tf;let list=TASKS.filter(t=>f.st==='all'||(f.st==='open'?t.st!=='Tamamlanıb':t.st==='Tamamlanıb'));if(f.who!=='all')list=list.filter(t=>t.agent==+f.who);
+  const grp=[['Vaxtı keçib',list.filter(t=>t.st!=='Tamamlanıb'&&dd(t.due)<0)],['Bu gün',list.filter(t=>dd(t.due)===0)],['Yaxın günlər',list.filter(t=>dd(t.due)>0)],['Tamamlanıb, keçmiş',list.filter(t=>t.st==='Tamamlanıb'&&dd(t.due)<0)]];
+  return ph('Tapşırıqlar və əlaqələr','Hər müştəri əlaqəsinin tarixçəsi, növbəti addım və tapşırıqların son tarixləri.',`${L('Əlaqə qeyd et','Əlaqənin qeydə alınması tam versiyada aktiv olacaq.','', 'phone')}${L('Yeni tapşırıq','Tapşırıq yaratmaq tam versiyada aktiv olacaq: ad, müştəri/əmlak, məsul, son tarix, prioritet.','pri','plus')}`)+
+  `<div class="grid g2"><section class="panel"><div class="filters"><div class="seg">${[['open','Açıq'],['done','Tamamlanıb'],['all','Hamısı']].map(([k,l])=>`<button class="${f.st===k?'on':''}" data-act="tst" data-v="${k}">${l}</button>`).join('')}</div>
+     ${sel('who','Məsul',[...AGENTS,6].map(a=>[a,U(a).name]),f.who==='all'?'':f.who,'tf')}</div>
+     ${grp.filter(g=>g[1].length).map(([g,l])=>`<div class="panel-b" style="padding:10px 16px 4px"><div class="sub-h">${g} · ${l.length}</div></div>${taskRows(l)}`).join('')||empty('check-check','Tapşırıq yoxdur','')}</section>
+   ${panel(`${ic('messages-square')}Son əlaqələr`,`<div class="tl">${INTER.slice(0,14).map(i=>`<div class="tl-i"><div class="ico-b acc">${ic(IICON[i.type])}</div><div class="tt"><a data-go="musteri" data-id="${i.cid}" style="cursor:pointer;font-weight:500;color:var(--fg);text-decoration:none">${esc(C(i.cid).name)}</a> · ${i.type}<small>${fDT(i.d)} · ${short(i.agent)}</small><div style="margin-top:3px">${esc(i.res)}</div>${i.next!=='–'?`<small>Növbəti addım: ${esc(i.next)}</small>`:''}</div></div>`).join('')}</div>`)}</div>`};
+
+/* deals */
+V.sovdelesmeler=()=>ph('Satış və sövdələşmələr','Razılaşmanın mərhələləri. Satışın tamamlanması və əmlakın "satılıb" kimi işarələnməsi səlahiyyətli şəxsin təsdiqi ilə olur.',L('Yeni sövdələşmə','Sövdələşmə yaratmaq tam versiyada aktiv olacaq.','pri','plus'))+
+  `<div class="callout warn" style="margin-bottom:14px">${ic('stamp')}<div><b>Təsdiq qaydası.</b> "Təsdiq gözləyir" mərhələsindəki sövdələşməni yalnız Rəhbərlik və ya Administrator tamamlaya bilər. Bundan sonra əmlakın statusu dəyişir. Komissiya qaydası hələ müəyyən edilməyib, sahə hazırdır.</div></div>
+  <div class="kan">${DSTAGE.map(s=>{const l=DEALS.filter(d=>d.stage===s);return `<div class="kcol"><h4>${s}<span class="muted num">${l.length}</span></h4>${l.map(d=>{const p=P(d.pid);return `<div class="kcard"><div class="row" style="justify-content:space-between"><span class="mono">${d.code}</span><span class="chip">${d.kind}</span></div>
+     <a data-go="emlak" data-id="${p.id}" style="cursor:pointer;color:var(--fg);text-decoration:none;font-weight:500">${esc(p.title)}</a>
+     <div class="muted">${d.cids.map(id=>`<a data-go="musteri" data-id="${id}" style="cursor:pointer;color:inherit">${esc(C(id).name)}</a>`).join(' · ')}</div>
+     <div class="pr">${d.price?azn(d.price)+(d.kind==='Kirayə'?' /ay':''):'<span class="muted" style="font-weight:400;font-size:12.5px">Qiymət razılaşdırılmayıb</span>'}</div>
+     <div class="row" style="justify-content:space-between;font-size:12px"><span class="muted">${short(d.agent)} · ${fD(d.d)}</span><span class="faint">Komissiya: –</span></div>
+     ${s==='Təsdiq gözləyir'?L('Təsdiqlə','Təsdiq tam versiyada yalnız Rəhbərlik və Administrator üçün aktiv olacaq.','sm pri','stamp'):''}${d.note&&s!=='Təsdiq gözləyir'?`<div class="muted" style="font-size:12px">${esc(d.note)}</div>`:''}</div>`}).join('')||`<div class="faint" style="font-size:12px;padding:6px 2px">Boşdur</div>`}</div>`}).join('')}</div>`;
+
+/* reports */
+V.hesabatlar=()=>{const f=S.rf;
+  return ph('Hesabatlar','Bütün göstəricilər bazadan hesablanır. Filtrlər əmlak və müştəri hesabatlarına tətbiq olunur.',`${L('CSV','İxrac tam versiyada aktiv olacaq. Müştəri məlumatlarının ixracı xüsusi icazə tələb edir.','', 'file-down')}${L('Excel','İxrac tam versiyada aktiv olacaq.','', 'sheet')}`)+
+  `<section class="panel" style="margin-bottom:16px"><div class="filters">${sel('range','Tarix aralığı',[['30','Son 30 gün'],['90','Son 90 gün'],['365','Son 12 ay']],f.range,'rf')}${sel('agent','Məsul',AGENTS.map(a=>[a,U(a).name]),f.agent,'rf')}${sel('district','Rayon',DISTRICTS,f.district,'rf')}</div></section><div id="rres"></div>`};
+function bars(rows,cls=''){const mx=Math.max(1,...rows.map(r=>r[1]));return `<div class="bars">${rows.map(([l,v])=>`<div class="bar ${cls}"><span>${esc(l)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="v">${v}</span></div>`).join('')}</div>`}
+function renderReports(){const f=S.rf;const inR=d=>dd(d)>=-(+f.range);
+  const ps=PROPS.filter(p=>inR(p.created)&&(!f.agent||p.agent==+f.agent)&&(!f.district||p.district===f.district));
+  const cs=CUST.filter(c=>inR(c.created)&&(!f.agent||c.agent==+f.agent));
+  const os=OFFERS.filter(o=>inR(o.d)&&(!f.agent||o.agent==+f.agent));
+  $('#rres').innerHTML=`<div class="grid g2">
+   ${panel('Əmlaklar növ üzrə',`<div class="panel-b">${ps.length?bars(TYPES.map(t=>[t,ps.filter(p=>p.type===t).length]).filter(x=>x[1])):empty('chart-column','Bu dövrdə əmlak əlavə edilməyib','')}</div>`)}
+   ${panel('Əmlaklar status üzrə',`<div class="panel-b">${ps.length?bars(PSTAT.map(t=>[t,ps.filter(p=>p.status===t).length]).filter(x=>x[1])):empty('chart-column','Məlumat yoxdur','')}</div>`)}
+   ${panel('Satış və kirayə elanları',`<div class="panel-b">${bars([['Satış',ps.filter(p=>p.deal==='Satış').length],['Kirayə',ps.filter(p=>p.deal==='Kirayə').length],['Satış və kirayə',ps.filter(p=>p.deal==='Satış və kirayə').length]])}</div>`)}
+   ${panel('Yeni tikili stoku, kompleks üzrə',`<div class="panel-b"><div class="bars stackbar">${PROJECTS.map(p=>{const a=APTS.filter(x=>x.pid===p.id),n=a.length||1;const c=k=>a.filter(x=>x.st===k).length;
+      return `<div class="bar"><span>${p.name}</span>${a.length?`<div class="track"><div class="seg1" style="width:${c('sale')/n*100}%"></div><div class="seg2" style="width:${c('res')/n*100}%"></div><div class="seg3" style="width:${(c('sold')+c('off'))/n*100}%"></div><div class="seg4" style="width:${c('chk')/n*100}%"></div></div><span class="v">${c('sale')}</span>`:`<span class="faint" style="font-size:12px">API gözlənilir</span><span></span>`}</div>`}).join('')}</div>
+      <div class="legend" style="margin-top:10px"><span><i style="background:var(--ok)"></i>Satışda</span><span><i style="background:var(--warn)"></i>Rezerv</span><span><i style="background:var(--faint)"></i>Satılıb</span><span><i style="background:var(--bad)"></i>Yoxlanılır</span></div></div>`)}
+   ${panel('Müştərilər kateqoriya üzrə',`<div class="panel-b">${cs.length?bars(CATS.map(c=>[CATL[c],cs.filter(x=>x.cats.includes(c)).length])):empty('users','Bu dövrdə yeni müştəri yoxdur','')}<div class="muted" style="font-size:12px;margin-top:8px">Bir müştəri bir neçə kateqoriyada ola bilər, cəm müştəri sayından çox ola bilər.</div></div>`)}
+   ${panel('Təkliflər status üzrə',`<div class="panel-b">${os.length?bars(OSTAT.map(s=>[s,os.filter(o=>o.status===s).length])):empty('send','Bu dövrdə təklif yoxdur','')}</div>`)}
+  </div>
+  <div style="margin-top:16px">${panel('Agentlər üzrə fəaliyyət',`<div class="tw"><table class="t"><thead><tr><th>Əməkdaş</th><th class="r">Aktiv əmlak</th><th class="r">Müştəri</th><th class="r">Əlaqə</th><th class="r">Təklif</th><th class="r">Qəbul edilən</th><th class="r">Tamamlanmış sövdələşmə</th><th class="r">Vaxtı keçmiş tapşırıq</th></tr></thead><tbody>
+    ${[...AGENTS,6].filter(a=>!f.agent||a==+f.agent).map(a=>`<tr><td><div class="cell2"><span class="av sm">${initials(U(a).name)}</span>${U(a).name}</div></td><td class="r num">${PROPS.filter(p=>p.agent===a&&p.status==='Aktiv').length}</td><td class="r num">${CUST.filter(c=>c.agent===a).length}</td><td class="r num">${INTER.filter(i=>i.agent===a&&inR(i.d)).length}</td><td class="r num">${os.filter(o=>o.agent===a).length}</td><td class="r num">${os.filter(o=>o.agent===a&&o.status==='Qəbul edilib').length}</td><td class="r num">${DEALS.filter(d=>d.agent===a&&d.stage==='Tamamlanıb').length}</td><td class="r num">${overdue().filter(t=>t.agent===a).length}</td></tr>`).join('')}</tbody></table></div>`)}</div>
+  <div style="margin-top:16px">${panel(`API sinxronizasiyaları <span class="tag-test">TEST</span>`,`<div class="panel-b">${bars([['Uğurlu',RUNS.filter(r=>r.k==='ok').length],['Qismən',RUNS.filter(r=>r.k==='part').length],['Xəta',RUNS.filter(r=>r.k==='err').length]])}</div>`)}</div>`;icons()}
+
+/* integrations */
+V.inteqrasiyalar=()=>{const owner=[['Qiymət','API','Bəli','Əl ilə dəyişilibsə xəbərdarlıq, təsdiqlə yazılır'],['Satış statusu','API','Bəli','API-də görünməmək "satılıb" demək deyil, yoxlama növbəsinə düşür'],['Otaq, sahə, mərtəbə','API','Bəli','Fərq aşkarlansa konflikt kimi göstərilir'],['Şəkil və renderlər','API + əl ilə','Yalnız əlavə','Mövcud fayllar silinmir, mənbəyi saxlanılır'],['Təsvir və qeydlər','Əl ilə','Xeyr','API heç vaxt üzərinə yazmır'],['Məsul əməkdaş','Əl ilə','Xeyr','API heç vaxt üzərinə yazmır']];
+  return ph('İnteqrasiyalar','Hər tikinti şirkəti üçün ayrıca adapter. API açarları yalnız serverdə saxlanılır.')+
+  `<div class="grid g3" style="margin-bottom:16px">${DEVS.map(d=>`<section class="panel"><div class="panel-h"><h3>${ic('plug')}${d.name}</h3>${d.integ==='test'?'<span class="tag-test">TEST</span>':d.integ==='wait'?'<span class="pill p-warn">Gözlənilir</span>':'<span class="pill p-mute">Əl ilə</span>'}</div>
+    <div class="panel-b stack" style="gap:10px"><div style="font-size:13px">${d.note}</div>
+    <dl class="dl" style="grid-template-columns:1fr 1fr;margin:0 -16px">${[['Adapter',d.integ==='test'?'TestAdapter v0':d.integ==='wait'?'Hazırlanacaq':'Yoxdur'],['Son sinxronizasiya',d.integ==='test'?fDT(RUNS[0].d):'–'],['Cədvəl',d.integ==='test'?'Hər 6 saatdan bir':'–'],['Limit',d.integ==='test'?'60 sorğu / dəq':'Sənəddən sonra']].map(([a,b])=>`<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
+    <div class="row">${d.integ==='test'?L('İndi sinxronlaşdır','Əl ilə sinxronizasiya tam versiyada administrator üçün aktiv olacaq.','sm','refresh-cw'):d.integ==='wait'?L('API məlumatlarını daxil et','API ünvanı və açarı tam versiyada serverdə şifrəli saxlanılacaq.','sm','key-round'):L('Excel ilə yenilə','Stokun Excel ilə idxalı tam versiyada aktiv olacaq.','sm','upload')}</div></div></section>`).join('')}</div>
+  <div class="grid g2" style="margin-bottom:16px">
+   ${panel(`${ic('database-zap')}Bitrix24 idxalı · Melissa`,`<div class="panel-b stack" style="gap:10px"><div class="row" style="justify-content:space-between"><span>Müştəri və sövdələşmələrin mövcud CRM-dən köçürülməsi</span><span class="pill p-info">Planlaşdırılır</span></div>
+     ${[['Webhook ilə oxuma icazəsi','Bitrix administratorundan'],['Sınaq oxuması','Heç nə yazılmır, yalnız hesabat'],['Sahə xəritəsi','Bitrix sahəsi → MEV sahəsi'],['Təkrarların birləşdirilməsi','Telefon nömrəsinə görə'],['İdxal','Hər qeyddə Bitrix ID saxlanılır, təkrar idxal olunmur']].map(([a,b],i)=>`<div class="row" style="gap:10px;align-items:flex-start"><span class="ico-b" style="font:600 12px var(--f-mono)">${i+1}</span><div style="font-size:13px">${a}<div class="muted" style="font-size:12px">${b}</div></div></div>`).join('')}</div>`,'',false)}
+   ${panel(`${ic('eye')}Yoxlama növbəsi · API-də görünməyən mənzillər`,CHECKQ.length?CHECKQ.map(a=>{const p=PROJECTS.find(x=>x.id===a.pid);return `<div class="li"><div class="ico-b bad">${ic('circle-help')}</div><div class="main-t">${p.name}, mənzil №${a.no}<small><span class="mono">${a.ext}</span> · ${a.rooms} otaq · ${a.m2} m² · son görünmə ${fD(day(-ri(1,3)))}</small></div><div class="row">${L('Satılıb','Təsdiq tam versiyada aktiv olacaq.','sm')}${L('Aktiv saxla','Tam versiyada aktiv olacaq.','sm')}</div></div>`}).join(''):empty('check','Növbə boşdur',''))}
+  </div>
+  <div style="margin-bottom:16px">${panel(`${ic('git-branch')}Sahələrin mənbəyi və yenilənmə qaydası`,`<div class="tw"><table class="t"><thead><tr><th>Sahə</th><th>Əsas mənbə</th><th>API yeniləyə bilər</th><th>Qayda</th></tr></thead><tbody>${owner.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]==='Bəli'?'<span class="pill p-ok">Bəli</span>':r[2]==='Xeyr'?'<span class="pill p-mute">Xeyr</span>':'<span class="pill p-warn">'+r[2]+'</span>'}</td><td class="muted">${r[3]}</td></tr>`).join('')}</tbody></table></div>`)}</div>
+  ${panel(`${ic('scroll-text')}Sinxronizasiya jurnalı <span class="tag-test">TEST</span>`,`<div class="tw"><table class="t"><thead><tr><th>#</th><th>Vaxt</th><th>Mənbə</th><th>Başladan</th><th>Nəticə</th><th class="r">Yeniləndi</th><th class="r">Yeni</th><th class="r">Dəyişməyib</th><th class="r">Xəta</th><th class="r">Müddət</th><th>Qeyd</th></tr></thead><tbody>
+   ${RUNS.map(r=>`<tr><td class="mono">${r.id}</td><td class="nw">${fDT(r.d)}</td><td class="nw">Şirkət A</td><td class="nw">${r.kind}</td><td>${r.k==='ok'?'<span class="pill p-ok">Uğurlu</span>':r.k==='part'?'<span class="pill p-warn">Qismən</span>':'<span class="pill p-bad">Xəta</span>'}</td><td class="r num">${r.upd}</td><td class="r num">${r.neu}</td><td class="r num">${r.same}</td><td class="r num">${r.errs}</td><td class="r num">${r.dur} san</td><td class="muted" style="min-width:260px">${r.msg}</td></tr>`).join('')}</tbody></table></div>`)}`};
+
+/* team */
+const MODS=['Əmlaklar','Müştərilər','Yeni tikililər','Uyğunlaşdırma','Tapşırıqlar','Sövdələşmələr','Hesabatlar','İnteqrasiyalar','Komanda','Jurnal','Parametrlər'];
+const ACTS=['Bax','Yarat','Redaktə','Arxivlə','İxrac','Təsdiq'];
+const PERM={
+ 'Administrator':()=>true,
+ 'Rəhbərlik':(m,a)=>a==='Bax'?m!=='Parametrlər':(a==='Təsdiq'&&['Əmlaklar','Sövdələşmələr'].includes(m))||(a==='İxrac'&&['Hesabatlar','Müştərilər','Əmlaklar'].includes(m))||(a==='Redaktə'&&m==='Sövdələşmələr'),
+ 'Əmlak agenti':(m,a)=>['Əmlaklar','Müştərilər','Uyğunlaşdırma','Tapşırıqlar','Sövdələşmələr'].includes(m)?['Bax','Yarat','Redaktə'].includes(a)||(a==='Arxivlə'&&m==='Əmlaklar'):(a==='Bax'&&['Yeni tikililər','Hesabatlar'].includes(m)),
+ 'Müştəri xidmətləri':(m,a)=>['Müştərilər','Tapşırıqlar'].includes(m)?['Bax','Yarat','Redaktə'].includes(a):(a==='Bax'&&['Əmlaklar','Yeni tikililər','Uyğunlaşdırma'].includes(m)),
+ 'Yalnız oxuma':(m,a)=>a==='Bax'&&['Əmlaklar','Müştərilər','Yeni tikililər','Hesabatlar'].includes(m)};
+V.komanda=()=>ph('Komanda və icazələr','İstifadəçiləri yalnız administrator yaradır. Açıq qeydiyyat yoxdur. İcazələr modul və əməliyyat səviyyəsində serverdə yoxlanılır.',L('İstifadəçi əlavə et','İstifadəçi yaratmaq tam versiyada yalnız administrator üçün aktiv olacaq.','pri','user-plus'))+
+ `<div style="margin-bottom:16px">${panel(`${ic('users')}İstifadəçilər · ${USERS.length}`,`<div class="tw"><table class="t"><thead><tr><th>Ad</th><th>Rol</th><th>E-poçt</th><th>Status</th><th>Son giriş</th><th></th></tr></thead><tbody>${USERS.map(u=>`<tr><td><div class="cell2"><span class="av sm">${initials(u.name)}</span>${u.name}</div></td><td>${u.role}</td><td class="muted">${u.email}</td><td>${u.active?'<span class="pill p-ok">Aktiv</span>':'<span class="pill p-mute">Deaktiv</span>'}</td><td class="nw muted">${fDT(u.last)}</td><td class="r">${L(u.active?'Deaktiv et':'Aktivləşdir','İstifadəçinin statusunun dəyişməsi tam versiyada aktiv olacaq və jurnala yazılacaq.','sm ghost')}</td></tr>`).join('')}</tbody></table></div>`)}</div>
+ <div class="grid g-main"><section class="panel" style="min-width:0"><div class="panel-h"><h3>${ic('shield-check')}Rol icazələri</h3>${L('Redaktə et','İcazələrin dəyişdirilməsi tam versiyada aktiv olacaq.','sm')}</div>
+   <div class="filters"><div class="seg" style="flex-wrap:wrap">${Object.keys(PERM).map(r=>`<button class="${S.role===r?'on':''}" data-act="role" data-v="${r}">${r}</button>`).join('')}</div></div>
+   <div class="tw"><table class="t mx"><thead><tr><th>Modul</th>${ACTS.map(a=>`<th>${a}</th>`).join('')}</tr></thead><tbody>${MODS.map(m=>`<tr><td>${m}</td>${ACTS.map(a=>`<td>${PERM[S.role](m,a)?`<span class="ck on">${ic('check')}</span>`:'<span class="ck"></span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>
+  ${panel(`${ic('lock-keyhole')}Təhlükəsizlik`,`<div class="panel-b stack" style="gap:8px;font-size:13px">${[['key-round','Şifrələr argon2id ilə heşlənir, açıq saxlanılmır'],['timer','Sessiya 8 saat fəaliyyətsizlikdən sonra bağlanır'],['shield-alert','5 uğursuz girişdən sonra hesab 15 dəqiqəlik bloklanır'],['user-x','Açıq qeydiyyat və kənar müştəri kabineti yoxdur'],['server','Müştəri məlumatı yalnız giriş etmiş əməkdaşa, server tərəfində yoxlanılaraq verilir'],['file-lock','Yüklənən fayllar ictimai URL ilə açılmır']].map(([i,t])=>`<div class="row" style="gap:10px;align-items:flex-start;flex-wrap:nowrap"><span class="ico-b acc">${ic(i)}</span><span>${t}</span></div>`).join('')}</div>`,'',false)}</div>`;
+
+/* audit */
+V.jurnal=()=>{const f=S.af;const list=AUDIT.filter(a=>(!f.u||String(a.u)===f.u)&&(!f.act||a.act===f.act));
+  return ph('Fəaliyyət jurnalı','Vacib əməliyyatlar: kim, nə vaxt, hansı sahəni, əvvəlki və yeni dəyər. Jurnal redaktə edilə bilməz.',L('İxrac','Jurnalın ixracı tam versiyada administrator üçün aktiv olacaq.','', 'download'))+
+  `<section class="panel"><div class="filters">${sel('u','İstifadəçi',[['0','Sistem (API)'],...USERS.map(u=>[String(u.id),u.name])],f.u,'af')}${sel('act','Əməliyyat',[...new Set(AUDIT.map(a=>a.act))],f.act,'af')}<span class="muted" style="font-size:12.5px">${list.length} qeyd</span></div>
+  <div class="tw"><table class="t"><thead><tr><th>Vaxt</th><th>İstifadəçi</th><th>Əməliyyat</th><th>Obyekt</th><th>Sahə</th><th>Əvvəl</th><th>Sonra</th></tr></thead><tbody>
+  ${list.slice(0,60).map(a=>`<tr><td class="nw muted">${fDT(a.d)}</td><td class="nw">${a.u?short(a.u):'<span class="chip">Sistem</span>'}</td><td class="nw">${a.act}</td><td class="nw mono">${esc(a.obj)}</td><td class="muted">${a.f||'–'}</td><td class="muted nw">${esc(a.o)||'–'}</td><td class="nw">${esc(a.n)||'–'}</td></tr>`).join('')}</tbody></table></div></section>`};
+
+/* settings */
+V.parametrler=()=>ph('Parametrlər','Sistem parametrləri yalnız administrator tərəfindən dəyişdirilir.')+
+ `<div class="grid g2">
+  ${panel(`${ic('map-pin')}Ərazilər`,`<div class="panel-b tree"><div class="n">${ic('globe')}<b>Azərbaycan</b></div><div class="k"><div class="n">${ic('map')}<b>Bakı</b><span class="pill p-ok">Aktiv</span></div><div class="k">${DISTRICTS.map(d=>`<div class="n">${ic('corner-down-right','faint')}${d} rayonu <span class="faint">· ${LOC[d].join(', ')}</span></div>`).join('')}</div>
+    <div class="n">${ic('map')}Regionlar <span class="pill p-mute">Növbəti mərhələ</span></div></div><div class="n">${ic('globe-2')}Digər ölkələr <span class="pill p-mute">Gələcək</span></div>
+    <div class="muted" style="font-size:12px;margin-top:6px">Ərazi iyerarxiyası: ölkə → şəhər/rayon → rayon/qəsəbə → məhəllə. Yeni bölgələr əlavə edildikdə məlumat strukturu dəyişmir.</div></div>`,L('Ərazi əlavə et','Tam versiyada aktiv olacaq.','sm'),false)}
+  <div class="stack">
+  ${panel(`${ic('sliders-horizontal')}Uyğunlaşdırma çəkiləri`,`<div class="panel-b">${bars([['Büdcə',W0.budget],['Ərazi',W0.loc],['Otaq sayı',W0.rooms],['Sahə',W0.area],['Digər',W0.other]])}<div class="muted" style="font-size:12px;margin-top:8px">Cəmi 100. Uyğunlaşdırma bölməsində sınaq üçün dəyişmək olar.</div></div>`,L('Dəyiş','Tam versiyada aktiv olacaq.','sm'),false)}
+  ${panel(`${ic('coins')}Valyuta və formatlar`,`<dl class="dl" style="grid-template-columns:1fr 1fr">${[['Əsas valyuta','AZN'],['Kirayə qiyməti','AZN / ay'],['Yeni tikili','AZN / m²'],['Torpaq sahəsi','sot'],['Tarix formatı','22 okt 2026'],['Dil','Azərbaycan']].map(([a,b])=>`<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>`)}
+  ${panel(`${ic('hard-drive')}Ehtiyat nüsxə və fayllar`,`<dl class="dl" style="grid-template-columns:1fr 1fr">${[['Baza nüsxəsi','Hər gün, 03:00'],['Saxlanma','30 gün'],['Kənar nüsxə','Ayrıca serverdə'],['Bərpa sınağı','Ayda bir'],['Şəkil limiti','10 MB, JPG/PNG/WEBP'],['Plan və sənəd','PDF, 20 MB']].map(([a,b])=>`<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>`)}
+  </div></div>`;
+
+/* login preview */
+V.giris=()=>`<div class="login"><div class="login-card"><div class="brand" style="padding:0"><div class="brand-mark">MEV</div><div><b>MEV</b><span>Real Əmlak · daxili platforma</span></div></div>
+  <div><div style="font-size:18px;font-weight:600">Sistemə daxil olun</div><div class="muted" style="font-size:13px">Yalnız səlahiyyətli əməkdaşlar üçün. Hesabı administrator yaradır.</div></div>
+  <div class="fld"><label for="lu">İstifadəçi adı</label><input class="inp" id="lu" placeholder="ad.soyad" disabled></div>
+  <div class="fld"><label for="lp">Şifrə</label><input class="inp" id="lp" type="password" placeholder="••••••••" disabled></div>
+  <button class="btn pri locked" data-lock="Demo versiyada giriş bağlıdır. Tam versiyada hər əməkdaş öz hesabı ilə daxil olacaq." style="justify-content:center;height:40px">Daxil ol<i data-lucide="lock" class="lk"></i></button>
+  <div class="muted" style="font-size:12px;text-align:center">Şifrəni unutmusunuz? Administratora müraciət edin.</div></div></div>`;
+
+V.haqqinda=()=>ph('Demo haqqında','Bu səhifə rəhbərliyə platformanın tam versiyada nələri əhatə edəcəyini göstərmək üçündür.')+
+ `<div class="grid g2">${panel('Demoda nə işləyir',`<div class="panel-b stack" style="gap:8px;font-size:13px">${['Bütün 12 bölmə arasında keçid','Əmlak və müştəri siyahılarında axtarış, filtrlər və səhifələmə','Əmlak və müştəri kartları, tarixçələr, əlaqələr','Uyğunlaşdırma balı və səbəbləri, çəkilərin canlı dəyişməsi','Yeni tikili şahmatkası və mənzil kartı','Yeni əmlak və müştəri formalarına baxış, telefonla təkrar yoxlaması'].map(t=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="ico-b ok">${ic('check')}</span>${t}</div>`).join('')}</div>`,'',false)}
+  ${panel('Demoda nə kilidlidir',`<div class="panel-b stack" style="gap:8px;font-size:13px">${['Giriş: demo hesabsız açılır','Yaratma, redaktə, arxivləşdirmə və silmə','Şəkil və sənəd yükləmə','Real API sinxronizasiyası və Bitrix idxalı','İxrac və icazələrin dəyişdirilməsi'].map(t=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="ico-b">${ic('lock')}</span>${t}</div>`).join('')}
+   <div class="callout warn" style="margin-top:6px">${ic('info')}<div>Bütün adlar, telefonlar, qiymətlər və tikinti şirkətləri nümunədir. Real şəxslərə və şirkətlərə aid deyil.</div></div></div>`,'',false)}</div>`;
+
+/* ---------- forms (preview) ---------- */
+function openModal(title,body,foot){$('#modal').innerHTML=`<div class="modal-wrap" data-act="mclose"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-h"><h3>${title}</h3><button class="icon-btn" data-act="mclose" aria-label="Bağla">${ic('x')}</button></div><div class="modal-b">${body}</div><div class="modal-f">${foot}</div></div></div>`;icons()}
+const fld=(l,inner,cls='',show='')=>`<div class="fld ${cls}"${show?` data-show="${show}"`:''}><label>${l}</label>${inner}</div>`;
+function propForm(){const APT='İkinci əl mənzil|Yeni tikili mənzil',BLD='İkinci əl mənzil|Yeni tikili mənzil|Həyət evi / villa|Kommersiya obyekti';
+  openModal('Yeni əmlak',`<div class="callout info" style="margin-bottom:14px">${ic('info')}<div>Formaya baxış. Növü dəyişin: torpaq sahəsi üçün otaq və mərtəbə sahələri gizlənir, sahə "sot" ilə ölçülür.</div></div>
+  <div class="fgrid">${fld('Elan başlığı','<input class="inp" id="nf_t" placeholder="Məs. 3 otaqlı mənzil, Yeni Yasamal">','full')}
+   ${fld('Əmlak növü *',`<select class="sel" id="nf_type">${TYPES.map(t=>opt(t,t,'İkinci əl mənzil')).join('')}</select>`)}
+   ${fld('Əməliyyat *',`<div class="row"><label class="cbx"><input type="checkbox" checked>Satış</label><label class="cbx"><input type="checkbox">Kirayə</label></div>`)}
+   ${fld('Rayon *',`<select class="sel" id="nf_d">${DISTRICTS.map(d=>opt(d,d,'')).join('')}</select>`)}${fld('Ərazi',`<input class="inp" id="nf_a" placeholder="Məs. Yeni Yasamal">`)}
+   ${fld('Ünvan','<input class="inp" id="nf_ad" placeholder="Küçə, ev">','full')}
+   ${fld('Otaq sayı','<input class="inp" id="nf_r" inputmode="numeric">','',BLD)}${fld('<span id="nf_ul">Ümumi sahə, m²</span> *','<input class="inp" id="nf_m" inputmode="decimal">')}
+   ${fld('Mərtəbə','<input class="inp" id="nf_f" inputmode="numeric">','',BLD)}${fld('Binanın mərtəbə sayı','<input class="inp" id="nf_fs" inputmode="numeric">','',BLD)}
+   ${fld('Təmir vəziyyəti',`<select class="sel" id="nf_rp">${opt('','Seçin','')}${REPAIR.map(r=>opt(r,r,'')).join('')}</select>`,'',APT+'|Həyət evi / villa')}${fld('Əşyalı',`<select class="sel" id="nf_fu">${opt('','Seçin','')}${opt('1','Bəli','')}${opt('0','Xeyr','')}</select>`,'',APT+'|Həyət evi / villa')}
+   ${fld('Satış qiyməti, AZN','<input class="inp" id="nf_p" inputmode="numeric">')}${fld('Aylıq kirayə, AZN','<input class="inp" id="nf_rn" inputmode="numeric">')}
+   ${fld('Təsvir','<textarea class="inp" rows="3" id="nf_ds"></textarea>','full')}
+   ${fld('Şəkillər, plan və renderlər',`<div class="drop">${ic('images')}<div>Faylları bura atın və ya seçin. Bir neçə şəkil birdən yüklənir, sıralanır, əsas şəkil seçilir.</div></div>`,'full')}
+   ${fld('Mənbə',`<select class="sel" id="nf_s">${SOURCES.filter(s=>!s.includes('API')).map(s=>opt(s,s,'')).join('')}</select>`)}${fld('Məlumatı verən şəxs','<input class="inp" id="nf_o" placeholder="Ad və ya müştəri profili">')}
+   ${fld('Məsul əməkdaş',`<select class="sel" id="nf_ag">${AGENTS.map(a=>opt(a,U(a).name,3)).join('')}</select>`)}${fld('Status',`<select class="sel" id="nf_st">${opt('Qaralama','Qaralama','')}${opt('Aktiv','Aktiv','')}</select>`)}
+  </div>`,`<span class="muted" style="font-size:12px;margin-right:auto">* məcburi sahələr</span><button class="btn" data-act="mclose">Bağla</button>${L('Yadda saxla','Yadda saxlama tam versiyada aktiv olacaq. Yeni əmlak bazaya yazılacaq, jurnalda qeyd olunacaq və uyğun müştərilər axtarılacaq.','pri')}`);
+  syncPropForm()}
+function syncPropForm(){const t=$('#nf_type');if(!t)return;document.querySelectorAll('#modal [data-show]').forEach(el=>el.hidden=!el.dataset.show.split('|').includes(t.value));$('#nf_ul').textContent=t.value==='Torpaq sahəsi'?'Sahə, sot':'Ümumi sahə, m²'}
+function custForm(){openModal('Yeni müştəri',`<div class="callout info" style="margin-bottom:14px">${ic('info')}<div>Telefon sahəsinə <b class="num">+994 50 000 12 34</b> yazın: sistem mövcud profili tapıb xəbərdarlıq edəcək.</div></div>
+  <div class="fgrid">${fld('Ad *','<input class="inp" id="nc_n">')}${fld('Soyad','<input class="inp" id="nc_s">')}
+   ${fld('Telefon *','<input class="inp" id="nc_p" inputmode="tel" placeholder="+994 __ ___ __ __">')}${fld('E-poçt','<input class="inp" id="nc_e" type="email">')}
+   <div class="full" id="dup"></div>
+   ${fld('Kateqoriyalar *',`<div class="row">${CATS.map(c=>`<label class="cbx"><input type="checkbox">${CATL[c]}</label>`).join('')}</div><span class="hint">Bir neçəsini seçmək olar. Hər ehtiyac üçün ayrıca profil yaradılmır.</span>`,'full')}
+   ${fld('Məsul əməkdaş',`<select class="sel" id="nc_a">${[...AGENTS,6].map(a=>opt(a,U(a).name,6)).join('')}</select>`)}${fld('Mənbə',`<select class="sel" id="nc_src">${['Zəng','Instagram','Tövsiyə','Ofisə gəliş'].map(s=>opt(s,s,'')).join('')}</select>`)}
+   ${fld('Növbəti əlaqə','<input class="inp" id="nc_nx" type="datetime-local">')}${fld('Qeyd','<input class="inp" id="nc_q">')}</div>`,
+  `<button class="btn" data-act="mclose">Bağla</button>${L('Yadda saxla','Yadda saxlama tam versiyada aktiv olacaq. Təkrar nömrə olduqda saxlamadan əvvəl təsdiq istəniləcək.','pri')}`)}
+function dupCheck(v){const d=v.replace(/\D/g,'');const box=$('#dup');if(!box)return;const c=d.length>=9&&CUST.find(x=>x.phone.replace(/\D/g,'').endsWith(d.slice(-9)));
+  box.innerHTML=c?`<div class="callout warn">${ic('users')}<div style="flex:1"><b>Bu nömrə ilə profil artıq var.</b> ${esc(c.name)} · <span class="mono">${c.code}</span> · ${c.cats.map(x=>CATL[x]).join(', ')}<div class="row" style="margin-top:8px"><button class="btn sm" data-go="musteri" data-id="${c.id}" data-act="mclose">Mövcud profili aç</button>${L('Məlumatları müqayisə et','Müqayisə və birləşdirmə tam versiyada aktiv olacaq.','sm')}</div></div></div>`:'';icons()}
+
+/* ---------- render + events ---------- */
+function render(){renderNav();const v=V[S.route]||V.dashboard;$('#view').innerHTML=v();
+  if(S.route==='emlaklar')renderPropRes();if(S.route==='musteriler')renderCustRes();if(S.route==='uygunlasdirma')renderMatchRes();if(S.route==='hesabatlar')renderReports();icons()}
+function go(r,id){S.route=r;S.param=id!=null?+id:null;if(r==='emlak')S.ptab='info';if(r==='musteri')S.ctab='reqs';$('#sb').classList.remove('open');$('#scrim').classList.remove('open');render();window.scrollTo(0,0)}
+function toast(t,s,icon='lock'){const el=document.createElement('div');el.className='toast';el.innerHTML=`${ic(icon)}<div><b>${esc(t)}</b><span>${esc(s)}</span></div>`;$('#toast').appendChild(el);icons();setTimeout(()=>el.remove(),4200);while($('#toast').children.length>2)$('#toast').firstChild.remove()}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-lock],[data-go],[data-act],[data-form]');
+  if(!e.target.closest('#gq,#gres'))$('#gres').hidden=true;
+  if(!e.target.closest('#bellBtn,#bellPop'))$('#bellPop').hidden=true;
+  if(!e.target.closest('#qaBtn,#qaPop'))$('#qaPop').hidden=true;
+  if(!t)return;
+  if(t.dataset.lock!=null){e.preventDefault();toast('Tam versiyada aktiv olacaq',t.dataset.lock);return}
+  if(t.dataset.form){if(t.dataset.form==='prop')propForm();else custForm();return}
+  const a=t.dataset.act;
+  if(a==='mclose'&&(e.target===t||t.tagName==='BUTTON')){$('#modal').innerHTML='';if(!t.dataset.go)return}
+  if(a==='mclose'&&!t.dataset.go)return;
+  if(t.dataset.go){if(a==='mprop'){S.mmode='p2c';S.mprop=+t.dataset.id;go('uygunlasdirma');return}go(t.dataset.go,t.dataset.id);return}
+  const v=t.dataset.v;
+  if(a==='ppage'){S.ppage+=+v;renderPropRes()}
+  else if(a==='cpage'){S.cpage+=+v;renderCustRes()}
+  else if(a==='resetPf'){Object.keys(S.pf).forEach(k=>S.pf[k]='');S.ppage=1;render()}
+  else if(a==='resetCf'){Object.keys(S.cf).forEach(k=>S.cf[k]='');S.cpage=1;render()}
+  else if(a==='ptab'){S.ptab=v;render()}
+  else if(a==='ctab'){S.ctab=v;render()}
+  else if(a==='proj'){S.proj=v;S.bld=PROJECTS.find(p=>p.id===v).b[0].id;S.apt=null;render()}
+  else if(a==='bld'){S.bld=v;S.apt=null;render()}
+  else if(a==='apt'){S.apt=v||null;render()}
+  else if(a==='mmode'){S.mmode=v;render()}
+  else if(a==='mreq'){S.mmode='c2p';S.mreq=+t.dataset.id;go('uygunlasdirma')}
+  else if(a==='wreset'){S.w={...W0};render()}
+  else if(a==='tst'){S.tf.st=v;render()}
+  else if(a==='role'){S.role=v;render()}
+});
+function onField(e){const el=e.target;
+  if(el.id==='gq'){gsearch(el.value);return}
+  if(el.id==='nf_type'){syncPropForm();return}
+  if(el.id==='nc_p'){dupCheck(el.value);return}
+  if(el.dataset.w){S.w[el.dataset.w]=+el.value;const sum=Object.values(S.w).reduce((a,b)=>a+b,0)||1;Object.keys(S.w).forEach(k=>{const o=$('#wv_'+k);if(o)o.textContent=Math.round(S.w[k]/sum*100)+'%'});renderMatchRes();return}
+  const f=el.dataset.f;if(!f)return;
+  if(f==='showBad'){S.showBad=el.checked;renderMatchRes();return}
+  if(f==='mreq'||f==='mprop'){S[f]=+el.value;renderMatchRes();return}
+  const [scope,key]=f.split('.');
+  if(scope==='tf'){S.tf.who=el.value||'all';render();return}
+  S[scope][key]=el.value;
+  if(scope==='pf'){S.ppage=1;renderPropRes()}else if(scope==='cf'){S.cpage=1;renderCustRes()}else if(scope==='rf')renderReports();else if(scope==='af')render();
+}
+document.addEventListener('input',e=>{if(e.target.tagName!=='SELECT')onField(e)});
+document.addEventListener('change',e=>{if(e.target.tagName==='SELECT'||e.target.type==='checkbox')onField(e)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#modal').innerHTML='';$('#gres').hidden=true}
+  if(e.key==='/'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();$('#gq').focus()}});
+function gsearch(q){const box=$('#gres');q=q.trim().toLowerCase();if(q.length<2){box.hidden=true;return}const qd=q.replace(/\s/g,'');
+  const ps=PROPS.filter(p=>(p.code+' '+p.title+' '+p.addr).toLowerCase().includes(q)).slice(0,5);
+  const cs=CUST.filter(c=>c.name.toLowerCase().includes(q)||c.phone.replace(/\s/g,'').includes(qd)||c.code.toLowerCase().includes(q)).slice(0,5);
+  box.innerHTML=(ps.length?`<div class="gh">Əmlaklar</div>`+ps.map(p=>`<div class="gi" data-go="emlak" data-id="${p.id}">${thumb(p)}<div class="main-t" style="font-size:13px">${esc(p.title)}<small class="muted mono" style="display:block">${p.code}</small></div></div>`).join(''):'')+
+    (cs.length?`<div class="gh">Müştərilər</div>`+cs.map(c=>`<div class="gi" data-go="musteri" data-id="${c.id}"><span class="av">${initials(c.name)}</span><div style="font-size:13px">${esc(c.name)}<small class="muted num" style="display:block">${c.phone}</small></div></div>`).join(''):'')||'<div class="empty">Heç nə tapılmadı</div>';
+  box.hidden=false;icons()}
+$('#menuBtn').onclick=()=>{$('#sb').classList.add('open');$('#scrim').classList.add('open')};
+$('#scrim').onclick=()=>{$('#sb').classList.remove('open');$('#scrim').classList.remove('open')};
+$('#bellBtn').onclick=()=>{const p=$('#bellPop');p.hidden=!p.hidden;if(p.hidden)return;const od=overdue();
+  p.innerHTML=`<div class="gh" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:4px 8px;font-weight:600">Bildirişlər</div>
+   <div class="pi" data-go="tapsiriqlar"><span class="ico-b bad">${ic('alarm-clock')}</span><div>${od.length} tapşırığın vaxtı keçib<div class="muted" style="font-size:12px">Tapşırıqlar və əlaqələr</div></div></div>
+   <div class="pi" data-go="inteqrasiyalar"><span class="ico-b warn">${ic('eye')}</span><div>${CHECKQ.length} mənzil API-də görünmür, yoxlama lazımdır<div class="muted" style="font-size:12px">İnteqrasiyalar · TEST</div></div></div>
+   <div class="pi" data-go="uygunlasdirma"><span class="ico-b info">${ic('sparkles')}</span><div>${OFFERS.filter(o=>o.status==='Yeni uyğunluq').length} yeni uyğunluq nəzərdən keçirilməyib<div class="muted" style="font-size:12px">Uyğunlaşdırma</div></div></div>
+   <div class="pi" data-go="sovdelesmeler"><span class="ico-b acc">${ic('stamp')}</span><div>${DEALS.filter(d=>d.stage==='Təsdiq gözləyir').length} sövdələşmə təsdiq gözləyir<div class="muted" style="font-size:12px">Satış və sövdələşmələr</div></div></div>`;icons()};
+$('#qaBtn').onclick=()=>{const p=$('#qaPop');p.hidden=!p.hidden;p.innerHTML=`<div class="pi" data-form="prop">${ic('building-2')}Yeni əmlak</div><div class="pi" data-form="cust">${ic('user-plus')}Yeni müştəri</div><div class="pi" data-lock="Tapşırıq yaratmaq tam versiyada aktiv olacaq.">${ic('calendar-plus')}Tapşırıq</div><div class="pi" data-lock="Əlaqə qeydi tam versiyada aktiv olacaq.">${ic('phone')}Əlaqə qeydi</div><div class="pi" data-lock="Sövdələşmə yaratmaq tam versiyada aktiv olacaq.">${ic('handshake')}Sövdələşmə</div>`;icons()};
+
+(function init(){const h=(location.hash||'').slice(1);if(V[h]&&h!=='emlak'&&h!=='musteri')S.route=h;render();
+  if(!window.lucide){const s=document.querySelector('script[src*="lucide"]');s&&s.addEventListener('load',icons)}})();
+</script>
+</body>
+</html>
